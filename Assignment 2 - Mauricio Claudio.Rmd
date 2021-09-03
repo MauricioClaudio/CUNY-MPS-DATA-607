@@ -1,0 +1,39 @@
+---
+title: "DATA 607 - Assignment #2"
+author: "CLAUDIO, Mauricio"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+## Importing a CSV file into R
+
+SQL database files can be exported as Excel files, and then imported into R as comma-separated value (CSV) files using the `read.csv` command. 
+
+```{r fig.width=6, fig.height=6, fig.align='center'}
+report.csv=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Week 2\\Assignment 2\\report.csv",header=TRUE)
+report.csv
+```
+
+
+
+
+## Importing an SQL database into R
+
+SQL databases or individual tables can also be imported into R using the RODBC package. The first step is to install the package and load in the library. Then a connection is made to SQL Server by creating an ODBC connection named here "MovieReviews". Queries of the database in the "MovieReviews" connection are made directly in R with the `sqlQuery` command.
+
+```{r fig.width=6, fig.height=6, fig.align='center'}
+library(RODBC)
+connection=odbcConnect("MovieReviews")
+report.sql=sqlQuery(connection,
+          "SELECT *
+          FROM report
+          ORDER BY [Movie Title],Rating DESC")
+report.sql
+```
+
+## Code
+
+The SQL code for the 'MovieReviews' database and 'report' table is found [here](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607/blob/b868dc70b7b5a6411f7864d844b75669f1811083/Assignment%202%20-%20Mauricio%20Claudio.sql)
