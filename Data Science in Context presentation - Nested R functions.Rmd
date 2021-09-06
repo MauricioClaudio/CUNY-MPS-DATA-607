@@ -1,0 +1,102 @@
+---
+title: "A Brief Foray into Nested R Functions"
+author: "CLAUDIO,Mauricio"
+date: "8 September 2021"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+## Nested R Functions
+
+This presentation showcases the use of nested R functions --a function inside a function-- to code a function that performs the following tasks:  
+  
+* Calculate the mean, median, standard deviation, the number of non-missing values and the number of missing values for one or more input numerical variables.  
+* The first function argument is a data frame containing the input numerical variables.  
+* The second function argument is a character vector of variable names which summary statistics are calculated.  
+* The returned values are in a matrix that of numeric values. 
+* The values are rounded off to two decimal places.  
+  
+Let's load in and take a look at the first few records of the test data-set that we will use for this exercise, the [[**chol**]](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607/blob/065d057da642f3045f14167232b3f21538c37fe7/chol.RData) RDATA file.  
+  
+```{r}
+load("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Data Science in Context presentation\\chol.RData")
+
+head(chol)
+```
+
+
+## The Inner Function  
+  
+The first step is to code the inner function, 'calculator', used to calculate the variable statistics. Let's look at it, and test it with two variables, 'age' and 'tg'.
+  
+```{r}
+calculations = function(dat, varname){
+    c(round(mean(dat[[varname]],na.rm=TRUE),2),
+      round(median(dat[[varname]],na.rm=TRUE),2),
+      round(sd(dat[[varname]],na.rm=TRUE),2),
+      sum(!is.na(dat[[varname]])),
+      sum(is.na(dat[[varname]])))
+}
+
+calculations(chol,c("age"))
+calculations(chol,c("tg"))
+```
+  
+The function 'calculations' takes in two arguments, 'dat' and 'varname' where 'dat' is the input data-frame and 'varname' is the variable name in vector format whose calculations are performed. The output is a vector consisting of five statistics: the mean, median, standard deviation, no. of non-missing values and no. of missing values. Note that missing or NULL values are removed with the `na.=TRUE operator`, and that values are rounded off to two decimal places with the `round` function.  
+  
+That's all good and dandy, but what if we want to calculate the statistics for more than one variable in one fell swoop and output it as a data-frame?  
+  
+  
+## The Outer, Main Function  
+  
+The Outer, Main Function first defines the earlier Inner Function and invokes it iteratively depending on the number of parameters in the 'varlist' argument using an `if/else` statement. No iterations are needed if the number of arguments is one. For more than one parameter,a new row corresponding to an input variable in 'varlist' is appended to the matrix 'r' iteratively using the `rbind` function. Row and column names are added to the matrix 'r' at the end of the `if/else` loop.  
+  
+
+```{r}
+table.results=function(dat, varlist){
+  
+  calculations = function(dat, varname){
+    c(round(mean(dat[[varname]],na.rm=TRUE),2),
+      round(median(dat[[varname]],na.rm=TRUE),2),
+      round(sd(dat[[varname]],na.rm=TRUE),2),
+      sum(!is.na(dat[[varname]])),
+      sum(is.na(dat[[varname]])))
+  }
+  
+  r =calculations(dat, varlist[[1]])
+  if (length(varlist) == 1){
+    r= matrix(r, nrow=T)
+    } else{
+      for (index in 2:length(varlist)){
+        oneRow = calculations(dat, varlist[[index]])
+        r = rbind(r, oneRow)
+        }
+      }
+  rownames(r) = varlist
+  colnames(r) = c("Mean","Median","SD","!Missing","Missing")
+  return(r)
+}
+table.results(chol, c("chol"))
+
+table.results(chol, c("age", "tg"))
+
+table.results(chol, c("ht", "wt", "bmi"))
+
+```
+  
+  
+## Summary  
+  
+  Nested functions are a convenient yet powerful way of coding compact (though dense) functions in R. In terms of process, when coding a nested function, it is preferable to code the inner functions first, test them and then integrate them into two the outer, main function one by one. A function like this can be easily adapted or expanded to other calculations based on user need. Feel free to use!
+  
+  
+This document is available at [[**RPubs**]](https://rpubs.com/MauricioClaudio/805670)
+and on [[**Github**]] 
+
+
+
+
+
+
