@@ -1,0 +1,95 @@
+---
+title: "DATA 607 - Assignment No. 3"
+author: "CLAUDIO, Mauricio"
+date: "2021-09-19"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+### 1.  
+
+Using the 173 majors listed in fivethirtyeight.com's
+College Majors dataset provide code that identifies
+the majors that contain either "DATA" or "STATISTICS"
+
+```{r}
+majors=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Week 3\\Assignment\\majors.csv",header=TRUE)
+Major=as.vector(majors$Major)
+
+Major[grep("DATA",Major)]
+
+Major[grep("STATISTICS",Major)]
+```
+  
+  
+### 2.  
+  
+Write code that transforms the data below:
+
+ [1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+ 
+ [5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+ 
+ [9] "elderberry"   "lime"         "lychee"       "mulberry"    
+ 
+ [13] "olive"        "salal berry"
+ 
+ Into a format like this:  
+  
+ c("bell pepper", "bilberry", "blackberry", "blood orange", "blueberry", "cantaloupe", "chili pepper", "cloudberry", "elderberry", "lime", "lychee", "mulberry", "olive", "salal berry")  
+ 
+```{r}
+library(stringr)
+produce='[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"        "salal berry"'
+
+patrn="([a-z]+.[a-z]+)"
+unlist(str_extract_all(produce,pattern = patrn))
+```
+  
+  
+### 3.  
+  
+Describe, in words, what these expressions will match:
+ 
+(.)\1\1  
+Any character, followed by itself, followed by itself like this, "XXX".
+  
+"(.)(.)\\2\\1"  
+Any character, followed by any character, followed by the same second character, followed by the first character like this "XYYX".  
+  
+(..)\1  
+Any two chacters, followed by the same two characters like this, "XYXY".  
+  
+"(.).\\1.\\1"  
+Any character, followed by any character, followed by the same first character, followed by any character, followed by the same first character like this, "XYXZX"  
+  
+"(.)(.)(.).*\\3\\2\\1"  
+Any character, followed by any character, followed by any character, followed by zero or more characters, followed by the same third character, followed by the same second character, followed by the same first character like this "XYZ...ZYX".  
+  
+### 4.  
+  
+Construct regular expressions to match words that:  
+
+  
+Start and end with the same character.  
+``"^(.)((.*\\1$)|\\1?$)"``
+  
+Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)  
+``"([A-Za-z][A-Za-z]).*\\1"``
+  
+Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)  
+``"([a-z]).*\\1.*\\1"``
+  
+  
+### Get this document  
+  
+[RPubs](https://rpubs.com/MauricioClaudio)  
+[GitHub](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
