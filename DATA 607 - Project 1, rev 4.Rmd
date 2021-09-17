@@ -1,0 +1,393 @@
+---
+title: "DATA 607 - Project 1"
+author: "CLAUDIO, Mauricio"
+date: "Due date: 2021-09-19"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: vignette
+---
+
+
+In this project, you’re given a text file with chess tournament results where the information has some structure. Your job is to create an R Markdown file that generates a .CSV file (that could for example be imported into a SQL database) 
+with the following information for all of the players:  
+  
+Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents  
+  
+For the first player, the information would be:
+Gary Hua, ON, 6.0, 1794, 1605  
+  
+1605 was calculated by using the pre-tournament opponents’ ratings of 1436, 1563, 1600, 1610, 1649, 1663, 1716, and dividing by the total number of games played.
+
+### Load R libraries and source data
+
+```{r}
+library(stringr)
+tour.info=
+'-----------------------------------------------------------------------------------------
+ Pair | Player Name                     |Total|Round|Round|Round|Round|Round|Round|Round| 
+ Num  | USCF ID / Rtg (Pre->Post)       | Pts |  1  |  2  |  3  |  4  |  5  |  6  |  7  | 
+-----------------------------------------------------------------------------------------
+    1 | GARY HUA                        |6.0  |W  39|W  21|W  18|W  14|W   7|D  12|D   4|
+   ON | 15445895 / R: 1794   ->1817     |N:2  |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+    2 | DAKSHESH DARURI                 |6.0  |W  63|W  58|L   4|W  17|W  16|W  20|W   7|
+   MI | 14598900 / R: 1553   ->1663     |N:2  |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+    3 | ADITYA BAJAJ                    |6.0  |L   8|W  61|W  25|W  21|W  11|W  13|W  12|
+   MI | 14959604 / R: 1384   ->1640     |N:2  |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+    4 | PATRICK H SCHILLING             |5.5  |W  23|D  28|W   2|W  26|D   5|W  19|D   1|
+   MI | 12616049 / R: 1716   ->1744     |N:2  |W    |B    |W    |B    |W    |B    |B    |
+-----------------------------------------------------------------------------------------
+    5 | HANSHI ZUO                      |5.5  |W  45|W  37|D  12|D  13|D   4|W  14|W  17|
+   MI | 14601533 / R: 1655   ->1690     |N:2  |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+    6 | HANSEN SONG                     |5.0  |W  34|D  29|L  11|W  35|D  10|W  27|W  21|
+   OH | 15055204 / R: 1686   ->1687     |N:3  |W    |B    |W    |B    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+    7 | GARY DEE SWATHELL               |5.0  |W  57|W  46|W  13|W  11|L   1|W   9|L   2|
+   MI | 11146376 / R: 1649   ->1673     |N:3  |W    |B    |W    |B    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+    8 | EZEKIEL HOUGHTON                |5.0  |W   3|W  32|L  14|L   9|W  47|W  28|W  19|
+   MI | 15142253 / R: 1641P17->1657P24  |N:3  |B    |W    |B    |W    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+    9 | STEFANO LEE                     |5.0  |W  25|L  18|W  59|W   8|W  26|L   7|W  20|
+   ON | 14954524 / R: 1411   ->1564     |N:2  |W    |B    |W    |B    |W    |B    |B    |
+-----------------------------------------------------------------------------------------
+   10 | ANVIT RAO                       |5.0  |D  16|L  19|W  55|W  31|D   6|W  25|W  18|
+   MI | 14150362 / R: 1365   ->1544     |N:3  |W    |W    |B    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   11 | CAMERON WILLIAM MC LEMAN        |4.5  |D  38|W  56|W   6|L   7|L   3|W  34|W  26|
+   MI | 12581589 / R: 1712   ->1696     |N:3  |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   12 | KENNETH J TACK                  |4.5  |W  42|W  33|D   5|W  38|H    |D   1|L   3|
+   MI | 12681257 / R: 1663   ->1670     |N:3  |W    |B    |W    |B    |     |W    |B    |
+-----------------------------------------------------------------------------------------
+   13 | TORRANCE HENRY JR               |4.5  |W  36|W  27|L   7|D   5|W  33|L   3|W  32|
+   MI | 15082995 / R: 1666   ->1662     |N:3  |B    |W    |B    |B    |W    |W    |B    |
+-----------------------------------------------------------------------------------------
+   14 | BRADLEY SHAW                    |4.5  |W  54|W  44|W   8|L   1|D  27|L   5|W  31|
+   MI | 10131499 / R: 1610   ->1618     |N:3  |W    |B    |W    |W    |B    |B    |W    |
+-----------------------------------------------------------------------------------------
+   15 | ZACHARY JAMES HOUGHTON          |4.5  |D  19|L  16|W  30|L  22|W  54|W  33|W  38|
+   MI | 15619130 / R: 1220P13->1416P20  |N:3  |B    |B    |W    |W    |B    |B    |W    |
+-----------------------------------------------------------------------------------------
+   16 | MIKE NIKITIN                    |4.0  |D  10|W  15|H    |W  39|L   2|W  36|U    |
+   MI | 10295068 / R: 1604   ->1613     |N:3  |B    |W    |     |B    |W    |B    |     |
+-----------------------------------------------------------------------------------------
+   17 | RONALD GRZEGORCZYK              |4.0  |W  48|W  41|L  26|L   2|W  23|W  22|L   5|
+   MI | 10297702 / R: 1629   ->1610     |N:3  |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   18 | DAVID SUNDEEN                   |4.0  |W  47|W   9|L   1|W  32|L  19|W  38|L  10|
+   MI | 11342094 / R: 1600   ->1600     |N:3  |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   19 | DIPANKAR ROY                    |4.0  |D  15|W  10|W  52|D  28|W  18|L   4|L   8|
+   MI | 14862333 / R: 1564   ->1570     |N:3  |W    |B    |W    |B    |W    |W    |B    |
+-----------------------------------------------------------------------------------------
+   20 | JASON ZHENG                     |4.0  |L  40|W  49|W  23|W  41|W  28|L   2|L   9|
+   MI | 14529060 / R: 1595   ->1569     |N:4  |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   21 | DINH DANG BUI                   |4.0  |W  43|L   1|W  47|L   3|W  40|W  39|L   6|
+   ON | 15495066 / R: 1563P22->1562     |N:3  |B    |W    |B    |W    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   22 | EUGENE L MCCLURE                |4.0  |W  64|D  52|L  28|W  15|H    |L  17|W  40|
+   MI | 12405534 / R: 1555   ->1529     |N:4  |W    |B    |W    |B    |     |W    |B    |
+-----------------------------------------------------------------------------------------
+   23 | ALAN BUI                        |4.0  |L   4|W  43|L  20|W  58|L  17|W  37|W  46|
+   ON | 15030142 / R: 1363   ->1371     |     |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   24 | MICHAEL R ALDRICH               |4.0  |L  28|L  47|W  43|L  25|W  60|W  44|W  39|
+   MI | 13469010 / R: 1229   ->1300     |N:4  |B    |W    |B    |B    |W    |W    |B    |
+-----------------------------------------------------------------------------------------
+   25 | LOREN SCHWIEBERT                |3.5  |L   9|W  53|L   3|W  24|D  34|L  10|W  47|
+   MI | 12486656 / R: 1745   ->1681     |N:4  |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   26 | MAX ZHU                         |3.5  |W  49|W  40|W  17|L   4|L   9|D  32|L  11|
+   ON | 15131520 / R: 1579   ->1564     |N:4  |B    |W    |B    |W    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+   27 | GAURAV GIDWANI                  |3.5  |W  51|L  13|W  46|W  37|D  14|L   6|U    |
+   MI | 14476567 / R: 1552   ->1539     |N:4  |W    |B    |W    |B    |W    |B    |     |
+-----------------------------------------------------------------------------------------
+   28 | SOFIA ADINA STANESCU-BELLU      |3.5  |W  24|D   4|W  22|D  19|L  20|L   8|D  36|
+   MI | 14882954 / R: 1507   ->1513     |N:3  |W    |W    |B    |W    |B    |B    |W    |
+-----------------------------------------------------------------------------------------
+   29 | CHIEDOZIE OKORIE                |3.5  |W  50|D   6|L  38|L  34|W  52|W  48|U    |
+   MI | 15323285 / R: 1602P6 ->1508P12  |N:4  |B    |W    |B    |W    |W    |B    |     |
+-----------------------------------------------------------------------------------------
+   30 | GEORGE AVERY JONES              |3.5  |L  52|D  64|L  15|W  55|L  31|W  61|W  50|
+   ON | 12577178 / R: 1522   ->1444     |     |W    |B    |B    |W    |W    |B    |B    |
+-----------------------------------------------------------------------------------------
+   31 | RISHI SHETTY                    |3.5  |L  58|D  55|W  64|L  10|W  30|W  50|L  14|
+   MI | 15131618 / R: 1494   ->1444     |     |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   32 | JOSHUA PHILIP MATHEWS           |3.5  |W  61|L   8|W  44|L  18|W  51|D  26|L  13|
+   ON | 14073750 / R: 1441   ->1433     |N:4  |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   33 | JADE GE                         |3.5  |W  60|L  12|W  50|D  36|L  13|L  15|W  51|
+   MI | 14691842 / R: 1449   ->1421     |     |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   34 | MICHAEL JEFFERY THOMAS          |3.5  |L   6|W  60|L  37|W  29|D  25|L  11|W  52|
+   MI | 15051807 / R: 1399   ->1400     |     |B    |W    |B    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   35 | JOSHUA DAVID LEE                |3.5  |L  46|L  38|W  56|L   6|W  57|D  52|W  48|
+   MI | 14601397 / R: 1438   ->1392     |     |W    |W    |B    |W    |B    |B    |W    |
+-----------------------------------------------------------------------------------------
+   36 | SIDDHARTH JHA                   |3.5  |L  13|W  57|W  51|D  33|H    |L  16|D  28|
+   MI | 14773163 / R: 1355   ->1367     |N:4  |W    |B    |W    |B    |     |W    |B    |
+-----------------------------------------------------------------------------------------
+   37 | AMIYATOSH PWNANANDAM            |3.5  |B    |L   5|W  34|L  27|H    |L  23|W  61|
+   MI | 15489571 / R:  980P12->1077P17  |     |     |B    |W    |W    |     |B    |W    |
+-----------------------------------------------------------------------------------------
+   38 | BRIAN LIU                       |3.0  |D  11|W  35|W  29|L  12|H    |L  18|L  15|
+   MI | 15108523 / R: 1423   ->1439     |N:4  |W    |B    |W    |W    |     |B    |B    |
+-----------------------------------------------------------------------------------------
+   39 | JOEL R HENDON                   |3.0  |L   1|W  54|W  40|L  16|W  44|L  21|L  24|
+   MI | 12923035 / R: 1436P23->1413     |N:4  |B    |W    |B    |W    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+   40 | FOREST ZHANG                    |3.0  |W  20|L  26|L  39|W  59|L  21|W  56|L  22|
+   MI | 14892710 / R: 1348   ->1346     |     |B    |B    |W    |W    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+   41 | KYLE WILLIAM MURPHY             |3.0  |W  59|L  17|W  58|L  20|X    |U    |U    |
+   MI | 15761443 / R: 1403P5 ->1341P9   |     |B    |W    |B    |W    |     |     |     |
+-----------------------------------------------------------------------------------------
+   42 | JARED GE                        |3.0  |L  12|L  50|L  57|D  60|D  61|W  64|W  56|
+   MI | 14462326 / R: 1332   ->1256     |     |B    |W    |B    |B    |W    |W    |B    |
+-----------------------------------------------------------------------------------------
+   43 | ROBERT GLEN VASEY               |3.0  |L  21|L  23|L  24|W  63|W  59|L  46|W  55|
+   MI | 14101068 / R: 1283   ->1244     |     |W    |B    |W    |W    |B    |B    |W    |
+-----------------------------------------------------------------------------------------
+   44 | JUSTIN D SCHILLING              |3.0  |B    |L  14|L  32|W  53|L  39|L  24|W  59|
+   MI | 15323504 / R: 1199   ->1199     |     |     |W    |B    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   45 | DEREK YAN                       |3.0  |L   5|L  51|D  60|L  56|W  63|D  55|W  58|
+   MI | 15372807 / R: 1242   ->1191     |     |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   46 | JACOB ALEXANDER LAVALLEY        |3.0  |W  35|L   7|L  27|L  50|W  64|W  43|L  23|
+   MI | 15490981 / R:  377P3 ->1076P10  |     |B    |W    |B    |W    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+   47 | ERIC WRIGHT                     |2.5  |L  18|W  24|L  21|W  61|L   8|D  51|L  25|
+   MI | 12533115 / R: 1362   ->1341     |     |W    |B    |W    |B    |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   48 | DANIEL KHAIN                    |2.5  |L  17|W  63|H    |D  52|H    |L  29|L  35|
+   MI | 14369165 / R: 1382   ->1335     |     |B    |W    |     |B    |     |W    |B    |
+-----------------------------------------------------------------------------------------
+   49 | MICHAEL J MARTIN                |2.5  |L  26|L  20|D  63|D  64|W  58|H    |U    |
+   MI | 12531685 / R: 1291P12->1259P17  |     |W    |W    |B    |W    |B    |     |     |
+-----------------------------------------------------------------------------------------
+   50 | SHIVAM JHA                      |2.5  |L  29|W  42|L  33|W  46|H    |L  31|L  30|
+   MI | 14773178 / R: 1056   ->1111     |     |W    |B    |W    |B    |     |B    |W    |
+-----------------------------------------------------------------------------------------
+   51 | TEJAS AYYAGARI                  |2.5  |L  27|W  45|L  36|W  57|L  32|D  47|L  33|
+   MI | 15205474 / R: 1011   ->1097     |     |B    |W    |B    |W    |B    |W    |W    |
+-----------------------------------------------------------------------------------------
+   52 | ETHAN GUO                       |2.5  |W  30|D  22|L  19|D  48|L  29|D  35|L  34|
+   MI | 14918803 / R:  935   ->1092     |N:4  |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   53 | JOSE C YBARRA                   |2.0  |H    |L  25|H    |L  44|U    |W  57|U    |
+   MI | 12578849 / R: 1393   ->1359     |     |     |B    |     |W    |     |W    |     |
+-----------------------------------------------------------------------------------------
+   54 | LARRY HODGE                     |2.0  |L  14|L  39|L  61|B    |L  15|L  59|W  64|
+   MI | 12836773 / R: 1270   ->1200     |     |B    |B    |W    |     |W    |B    |W    |
+-----------------------------------------------------------------------------------------
+   55 | ALEX KONG                       |2.0  |L  62|D  31|L  10|L  30|B    |D  45|L  43|
+   MI | 15412571 / R: 1186   ->1163     |     |W    |B    |W    |B    |     |W    |B    |
+-----------------------------------------------------------------------------------------
+   56 | MARISA RICCI                    |2.0  |H    |L  11|L  35|W  45|H    |L  40|L  42|
+   MI | 14679887 / R: 1153   ->1140     |     |     |B    |W    |W    |     |B    |W    |
+-----------------------------------------------------------------------------------------
+   57 | MICHAEL LU                      |2.0  |L   7|L  36|W  42|L  51|L  35|L  53|B    |
+   MI | 15113330 / R: 1092   ->1079     |     |B    |W    |W    |B    |W    |B    |     |
+-----------------------------------------------------------------------------------------
+   58 | VIRAJ MOHILE                    |2.0  |W  31|L   2|L  41|L  23|L  49|B    |L  45|
+   MI | 14700365 / R:  917   -> 941     |     |W    |B    |W    |B    |W    |     |B    |
+-----------------------------------------------------------------------------------------
+   59 | SEAN M MC CORMICK               |2.0  |L  41|B    |L   9|L  40|L  43|W  54|L  44|
+   MI | 12841036 / R:  853   -> 878     |     |W    |     |B    |B    |W    |W    |B    |
+-----------------------------------------------------------------------------------------
+   60 | JULIA SHEN                      |1.5  |L  33|L  34|D  45|D  42|L  24|H    |U    |
+   MI | 14579262 / R:  967   -> 984     |     |W    |B    |B    |W    |B    |     |     |
+-----------------------------------------------------------------------------------------
+   61 | JEZZEL FARKAS                   |1.5  |L  32|L   3|W  54|L  47|D  42|L  30|L  37|
+   ON | 15771592 / R:  955P11-> 979P18  |     |B    |W    |B    |W    |B    |W    |B    |
+-----------------------------------------------------------------------------------------
+   62 | ASHWIN BALAJI                   |1.0  |W  55|U    |U    |U    |U    |U    |U    |
+   MI | 15219542 / R: 1530   ->1535     |     |B    |     |     |     |     |     |     |
+-----------------------------------------------------------------------------------------
+   63 | THOMAS JOSEPH HOSMER            |1.0  |L   2|L  48|D  49|L  43|L  45|H    |U    |
+   MI | 15057092 / R: 1175   ->1125     |     |W    |B    |W    |B    |B    |     |     |
+-----------------------------------------------------------------------------------------
+   64 | BEN LI                          |1.0  |L  22|D  30|L  31|D  49|L  46|L  42|L  54|
+   MI | 15006561 / R: 1163   ->1112     |     |B    |W    |W    |B    |W    |B    |B    |
+-----------------------------------------------------------------------------------------
+'
+```
+
+
+
+### Extract and tidy up player names
+
+```{r}
+patrn.NAME="([A-Z]+.){3}[A-Z]*"
+NAME=unlist(str_extract_all(tour.info,patrn.NAME))
+NAME=NAME[-1]
+NAME=trimws(NAME,c("right"))
+NAME
+```
+ 
+### Extract and tidy up player states
+
+```{r}
+patrn.STATE="(\\s){3}[A-Z]+."
+STATE=unlist(str_extract_all(tour.info,patrn.STATE))
+STATE=STATE[-1]
+STATE=trimws(trimws(STATE,c("left")),c("right"))
+STATE
+```
+  
+  
+### Extract and tidy up player points  
+
+```{r}
+patrn.POINTS="\\|[0-9]+.."
+POINTS=unlist(str_extract_all(tour.info,patrn.POINTS))
+POINTS=str_remove(POINTS,"\\|")
+POINTS
+```
+  
+  
+### Extract and tidy up player pre-ratings    
+
+```{r}
+patrn.PRERATING="R: [0-9]*...."
+PRERATING=unlist(str_extract_all(tour.info,patrn.PRERATING))
+PRERATING=str_remove_all(PRERATING,"R:")
+PRERATING=str_remove_all(PRERATING,"-")
+PRERATING=trimws(trimws(PRERATING,c("left")),c("right"))
+PRERATING=str_remove_all(PRERATING,"[A-Z][0-9]+")
+PRERATING=as.integer(PRERATING)
+PRERATING
+```
+  
+  
+### Extract and tidy up player opponent index number
+  
+ 
+```{r}
+patrn.OPPS="(\\d{1,2}|\\s{2})\\|"
+OPPS=unlist(str_extract_all(tour.info,patrn.OPPS))
+OPPS=OPPS[-(1:10)]
+OPPS=str_replace_all(OPPS,"\\|","")
+OPPS=as.integer(OPPS)
+OPPS
+```
+  
+The resulting vector contains repeating patterns of two empty elements, seven elements of opponent indices and nine empty elements. The seven indices of interest are separated from the two empty elements to the left and the nine empty elements to the right by casting the vector onto a matrix of 18 columns. Then, empty columns 1-2 and 10-18 are eliminated by subsetting columns 3-9, leaving behind only the seven opponent indices of interest. 
+  
+```{r}
+OPPS=matrix(OPPS,ncol=18,byrow=TRUE)
+OPPS=OPPS[,3:9]
+OPPS
+```
+  
+
+### Create a data-frame with the extracted variables
+  
+```{r}
+reslt=data.frame(NAME,STATE,POINTS,PRERATING,OPPS,stringsAsFactors=FALSE)
+colnames(reslt)[5:11]=c("Opp1","Opp2","Opp3","Opp4","Opp5","Opp6","Opp7")
+reslt
+```
+  
+  
+### Calculate and store average opponent rating
+The ```mean()``` function does not play nice with missing values even with a 'na.rm=TRUE' parameter so a custom solution was coded to handle pesky 'NA' values. In the future, I would probably handle this via an ```addmargins()``` or ```tapply()``` function which hopefully behaves better with 'NA' values.
+
+```{r}
+for (i in 1:nrow(reslt)){
+   counter=7
+   if (is.na(PRERATING[reslt$Opp1[i]])) {counter=counter-1}
+   if (is.na(PRERATING[reslt$Opp2[i]])) {counter=counter-1}
+   if (is.na(PRERATING[reslt$Opp3[i]])) {counter=counter-1}
+   if (is.na(PRERATING[reslt$Opp4[i]])) {counter=counter-1}
+   if (is.na(PRERATING[reslt$Opp5[i]])) {counter=counter-1}
+   if (is.na(PRERATING[reslt$Opp6[i]])) {counter=counter-1}
+   if (is.na(PRERATING[reslt$Opp7[i]])) {counter=counter-1}
+   reslt$avg.score[i]=round(
+      sum(
+      PRERATING[reslt$Opp1[i]],
+      PRERATING[reslt$Opp2[i]],
+      PRERATING[reslt$Opp3[i]],
+      PRERATING[reslt$Opp4[i]],
+      PRERATING[reslt$Opp5[i]],
+      PRERATING[reslt$Opp6[i]],
+      PRERATING[reslt$Opp7[i]],
+      na.rm=TRUE
+      )
+   /counter,0)
+}
+reslt
+```
+  
+### Output CSV. file  
+
+```{r}
+write.csv(reslt,"C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 1\\chessresults.csv")
+```
+  
+### So who are the strongest players, really?
+Player points alone don't tell the whole story.
+A player may have accumulated points by playing against weak
+opponents. Conversely, a player with few points may actually be
+stronger than what his/her points would suggest because s/he has
+played against strong opponents. Multiplying player points by the
+average opponent score can give a fuller picture of player strength.
+Let's take a look at that...
+
+```{r}
+reslt$POINTS=as.numeric(reslt$POINTS)
+reslt$strength=round(reslt$POINTS*reslt$PRERATING/1000,1)
+reslt2=reslt[order(-reslt$strength),]
+reslt2
+```
+
+The calculated variable ``strength`` now shows us that the previous
+ranking based on points alone may be misleading. Player rankings now
+show a different pattern with two players previously in the top-10,
+players 9 and 10, dropping to 13th and 14th place respectively.
+A top-10 ranking by ``strength`` is as follows:
+
+```{r}
+reslt2=reslt2[1:10,c("NAME","POINTS","strength")]
+reslt2
+```
+  
+We might also ask, "who are the most improved players?" or which players have shown the biggest increases between their Pre-rating and Post-rating scores. Let's find out who the top-10 most improved players are by extracting the Post-rating and comparing it to the previously extracted Pre-rating...  
+  
+```{r}
+patrn.POSTRATING="->\\s{0,1}\\d*...."
+POSTRATING=unlist(str_extract_all(tour.info,pattern=patrn.POSTRATING))
+POSTRATING=POSTRATING[-1]
+POSTRATING=str_remove_all(POSTRATING,"->")
+POSTRATING=trimws(trimws(POSTRATING,c("left")),c("right"))
+POSTRATING=str_remove_all(POSTRATING,"[A-Z][0-9]+")
+POSTRATING=as.integer(POSTRATING)
+reslt$POSTRATING=POSTRATING
+reslt$IMPROVEMENT=reslt$POSTRATING - reslt$PRERATING
+reslt3=reslt[order(-reslt$IMPROVEMENT),]
+reslt3=reslt3[1:10,c("NAME","PRERATING","POSTRATING","IMPROVEMENT")]
+
+reslt3
+```
+  
+
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
+  
+- [Its source text data](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607/blob/b9646fc2ef6e9d7e94b1c2f73fa5f295636ec925/tournamentinfo.txt)  
+  
+- [Its output CSV. file](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607/blob/e82d39970edb7b84ddc40770c3006203b273ac6d/chessresults.csv)  
+
