@@ -1,0 +1,116 @@
+---
+title: "DATA 607 - Week 5 Assignment"
+author: "CLAUDIO, Mauricio"
+date: "Due date: 2021-09-26"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: vignette
+---
+
+The chart above describes August 2021 data for Israeli hospitalization (“Severe Cases”) rates for 
+people under 50 (assume “50 and under”) and over 50, for both un-vaccinated and fully vaccinated 
+populations. Analyze the data, and try to answer the questions posed in the spreadsheet. You’ll need 
+some high level domain knowledge around (1) Israel’s total population, (2) Who is eligible to receive 
+vaccinations, and (3) What does it mean to be fully vaccinated? Please note any apparent 
+discrepancies that you observe in your analysis.  
+
+(1) Create a .CSV file (or optionally, a relational database!) that includes all the information above. 
+You’re encouraged to use a “wide” structure similar to how the information appears above, so 
+that you can practice tidying and transformations as described below.  
+
+(2) Read the information from your .CSV file into R, and use tidyr and dplyr as needed to tidy 
+and transform your data.  
+
+(3) Perform analysis as described in the spreadsheet and above.  
+
+(4) Your code should be in an R Markdown file, posted to rpubs.com, and should include narrative 
+descriptions of your data cleanup work, analysis, and conclusions. Please include in your 
+homework submission:  
+• The URL to the .Rmd file in your GitHub repository. and  
+• The URL for your rpubs.com web page
+  
+## Import the raw data
+
+```{r, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(stringr)
+```
+
+```{r}
+#VAC=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Week 5\\israeli_vaccination_data_analysis_start.csv",header=TRUE)
+VAC=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/israeli_vaccination_data_analysis_start.csv",header=TRUE)
+VAC
+```
+## Tidy up and transform the data
+
+```{r}
+VAC=VAC %>% rename(
+      AgeGroup=ï..Age,
+      NotVax=Population..,
+      Vax=X,
+      Sev.NotVaxPr100k=Severe.Cases,
+      Sev.VaxPr100k=X.1)
+VAC=slice(VAC,2:5)
+PcNotVax=VAC[[2]][c(2,4)]
+PcNotVax=as.numeric(str_remove_all(PcNotVax,"%"))
+PcVax=VAC[[3]][c(2,4)]
+PcVax=as.numeric(str_remove_all(PcVax,"%"))
+VAC=slice(VAC,c(1,3))
+VAC$PcNotVax=PcNotVax
+VAC$PcVax=PcVax
+VAC$Sev.NotVaxPr100k=as.numeric(VAC$Sev.NotVaxPr100k)
+VAC$Sev.VaxPr100k=as.numeric(VAC$Sev.VaxPr100k)
+VAC=VAC[,c(1,2,7,3,8,4,5,6)]
+VAC$NotVax=str_remove_all(VAC$NotVax,",")
+VAC$NotVax=as.integer(VAC$NotVax)
+VAC$Vax=str_remove_all(VAC$Vax,",")
+VAC$Vax=as.integer(VAC$Vax)
+VAC
+```
+  
+### Question 1: Do you have enough information to calculate the total population?  What does this total population represent?###  
+
+Yes, we have enough information to calculate the total population since we have absolute and relative numbers. The under-50 age group totals 4,617,952 persons, making up 96.3% of the population of the group. Therefore, one hundred per cent of the under-50 age group is 4,795,381 persons. The over-50 age group totals 2,319,594 persons, making up 98.3% of the group. Therefore, one hundred per cent of the over-50 age group totals 2,359,709 persons. The total population, the sum of the two age groups, is therefore 7,155,090.
+
+What does this total population represent? I imagine that it represents the target vaccination population of Israel, including a third group of partially-vaccinated persons that is not captured in the two ``Not Vaccinated`` and ``Fully Vaccinated`` groups.  Since the population of Israel is about 9.05 million, there are nearly two million people outside the target vaccination population, most of whom are likely minors who are not yet eligible for the vaccine.
+
+```{r}
+VAC=VAC %>% mutate(total.pop = (NotVax+Vax) / ((PcNotVax+PcVax)/100))
+VAC %>% summarize(total = sum(total.pop))
+```
+
+### Question 2: Calculate the Efficacy vs. Disease; Explain your results.  
+In the under-50 age group, for every severe case among vaccinated persons, there are about four severe cases among non-vaccinated persons. This suggests that for the age group, vaccinations is correlated with decreased severe cases. The group's 'Efficacy vs. Disease' index of 0.744 reflects that.  
+
+On the contrary, the reverse pattern is in evidence in the over-50 age group. In this age group, for every severe case among non-vaccinated persons, there are about 1.7 severe cases among vaccinated persons. This suggests that vaccination may be correlated with increased prevalence of severe cases.The group's 'Efficacy vs. Disease' index of -0.696 reflects that. The negative sign says that there are more severe cases among vaccinated persons than among non-vaccinated persons.  
+
+```{r}
+VAC=VAC %>% mutate(Efficacy=1-(VAC$Sev.VaxPr100k / VAC$Sev.NotVaxPr100k))
+cat("'Efficacy vs. Disease' for the",VAC$AgeGroup[1],
+    "age group is:",round(VAC$Efficacy[1],3),"\n")
+cat("'Efficacy vs. Disease' for the",VAC$AgeGroup[2],
+    "age group is:",round(VAC$Efficacy[2],3),"\n")
+```
+  
+### Question 3: From your calculation of efficacy vs. disease, are you able to compare the rate of severe cases in unvaccinated individuals to that in vaccinated individuals?  
+
+Yes. The difference in the rate of severe cases across the two age groups was calculated in Question 2 above. If we were to calculate across age groups or without regard for age, the results would be dominated by the much higher number of observations for the over-50 age group and would result in a negative 'Efficacy vs. Disease' index.  
+  
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)  
+
+- [Its R Markdown file](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)  
+  
+- [Its source text data](https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/israeli_vaccination_data_analysis_start.csv)  
+
+
+
+
+
+  
+  
+  
+  
