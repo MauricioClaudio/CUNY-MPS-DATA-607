@@ -1,0 +1,280 @@
+---
+title: "DATA 607 Project 2"
+author: "CLAUDIO, Mauricio"
+date: "Due date: 2021-10-03"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: vignette
+---
+
+The term 'untidy data' refers to data that is not in tabular form and does not follow the following conventions:  
+* Columns represent one and only one variable or attribute  
+* Rows represent one and only one observation or instance  
+* Cells at the intersection of columns and rows contain only single variable/attribute values.  
+As such, untidy data cannot be immediately or easily processed and analyzed by tools such as R which pressupose a tidy, tabular data format.
+
+Let's look at a few cases of untidy data, and how to tidy it and analyze it with, among others, the ``tidyr`` and ``dplyr`` R packages. 
+
+
+## 1. Untidy data: Values as variables in column headers  
+
+The following dataset, provided by student Hazal G., illustrates untidy data where column headers are not a single variable, but rather values of a variable. In this case, the variable should be a period of time.  
+
+```{r, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+```
+
+```{r}
+#athlete.dat=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy data set 1.csv")
+athlete.dat=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20data%20set%201.csv")
+athlete.dat
+```
+  
+We'll tidy up the table by reducing it from five to three columns using the powerful 'tidyr' function ``pivot_longer``. In the process, we'll change the name of the column corresponding to the Month to 'TimePeriod' and name the column resulting column of values 'Time'. Likewise, we will convert the values of 'TimePeriod' and 'Time' to integers so that they can be compared and analyzed numerically later time 'dplyr'.  
+    
+```{r}
+tidy.athlete = athlete.dat %>%
+  pivot_longer(
+  -Athlete,
+  names_to="Month",
+  values_to="Time",
+  names_prefix = "Month.",
+  names_transform = list(Time=as.integer,TimePeriod=as.integer)
+  )
+
+tidy.athlete
+```
+  
+Now that the data is in tidy, tabular form, we can proceed to analyzing it with ``dplyr``. Let's find out who the best athlete is by comparing their average times across all four months.  
+
+```{r}
+tidy.athlete %>%
+  group_by(Athlete) %>%
+  summarize(AverageTime=round(mean(Time),2)) %>%
+  arrange(AverageTime) %>%
+  ggplot(aes(Athlete,AverageTime)) + geom_col()
+```
+  
+We can perform a similar wide-to-long transformation and analysis of the dataset of energy consumption per capita in the Americas provided by Mark S. This one too has values as column headers. Let's take a look at it.
+
+```{r}
+#energy.dat=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy dataset 2.csv")
+energy.dat=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20dataset%202.csv")
+energy.dat
+```
+  
+We'll go ahead and apply the ``pivot_longer()`` function to all columns except for the column with country/region names. We'll also drop "NA" values and convert the energy values in 'GJperCap' to numeric so that they can be processed as numbers downstream.
+
+```{r}
+tidy.energy = energy.dat %>%
+  pivot_longer(
+  -Gigajoule.per.capita,
+  names_to="Year",
+  values_to="GJperCap",
+  values_drop_na = TRUE,
+  names_prefix = "X",
+  names_transform = list(GJperCap=as.numeric)
+) %>%
+  rename(CountryRegion=Gigajoule.per.capita)
+
+tidy.energy
+```
+  
+Now that the data is in tidy, tabular format we can analyze it with `dplyer`. Let's look at how energy consumption per capita increased over time in the so-called *Southern Cone* or South America's ABC countries: Argentina, Brazil and Chile.  
+
+```{r}
+tidy.energy.ABC = tidy.energy %>%
+  filter(CountryRegion=="Argentina"|CountryRegion=="Brazil"|CountryRegion=="Chile")
+
+ggplot(tidy.energy.ABC,aes(Year,GJperCap,color=CountryRegion)) + geom_point()
+```
+  
+## 2. *TTT - Tidy Tribble Transpose*
+Sometimes the untidy data comes in the form of a table whose columns should be rows and rows should be columns. This is the just the case in the example provided by student Donald B. Let's take a look at the offending table.  
+
+```{r}
+#weather=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy dataset 4.csv")
+weather=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20dataset%204.csv")
+weather
+```
+  
+Let's go ahead and *transpose* the table, first with a ``pivot_longer()`` to bring the months all into a single column, then with a ``pivot_wider()`` to bring the individual variables in the left-most column into separate, discrete variable columns, and finally with a third ``pivot_longer()`` to bring the two values 'High' and 'Low' within the variable 'TempRange'. Three *pipes* later we get this neat transpose.  
+
+```{r}
+weather.tidy = weather %>%
+  pivot_longer(
+  -Aruba.Weather,
+  names_to="Month",
+  values_to ="Temperature"
+  ) %>%
+  pivot_wider(names_from=Aruba.Weather,values_from=Temperature) %>%
+  pivot_longer(
+    c(High,Low),
+    names_to = "TempRange",
+    values_to = "Temperature"
+  )
+
+weather.tidy
+```
+  
+We'll convert 'Rainfall' values to numeric so that we can plot Rainfall over the whole year.  
+
+```{r}
+weather.tidy$Rainfall=as.numeric(str_remove_all(weather.tidy$Rainfall,"\""))
+ggplot(weather.tidy,aes(Month,Rainfall)) + geom_col()
+```
+  
+  
+## 3. Customer Churn  
+
+Monitoring customer churn is an important process in business. Here we have the customer churn table that I posted myself, showing the performance of three teams in gaining and losing customers. Because it is untidy, with values in place of variable columns and empty cells in the 'Division' column, it is difficult to analyze the table's contents and calculate customer churn and the performance of each division.  
+
+```{r}
+#churn=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy dataset 5.csv")
+churn=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20dataset%205.csv")
+
+churn
+```
+  
+Let's tidy up the table first by replacing empty cells with 'NA' values. We do this because the ``fill()`` function works only on cells with 'NA' values, not on empty cells. We then apply the ``fill()`` function to the 'Division' column to fill empty cells in the default 'down' direction, and a ``pivot_longer()`` function to create a single 'Month' column out of the twelve month columns. Note that we eliminate the 'Description' column because it is redundant; the plus/minus sign of the values already indicates whether the value represents a gain or a loss. Finally, we transform 'Customer' total values to integers so that we can manipulate them numerically downstream.  
+
+```{r}
+churn[churn==""]=NA
+churn.tidy = churn %>%
+  select(-Description) %>%
+  fill("Division") %>%
+  pivot_longer(c(Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec),
+  names_to="Month",
+  values_to = "Customers",
+  names_transform = list(Customers=as.integer)
+  )
+
+churn.tidy
+```
+  
+Now that our data is tidy, we can easily analyze its contents and ask the question: *which of the three divisions is most successful in terms of net (gains minus losses) customers?*  
+  
+```{r}
+churn.tidy %>% group_by(Division) %>%
+  summarize(Net_Customers=sum(Customers)) %>%
+  ggplot(aes(Division,Net_Customers)) + geom_col()
+```
+  
+Or we can ask: *How does net customer accrual vary over the year?*   
+
+```{r}
+churn.tidy %>%
+  group_by(Month) %>%
+  summarize(Net_Customers=sum(Customers)) %>%
+  ggplot(aes(Month,Net_Customers)) + geom_col()
+```
+  
+Management wants to know how each team performs individually over time. Let's dive deeper and find out.    
+
+```{r}
+churn.tidy %>%
+  group_by(Month,Division) %>%
+  summarize(Net_Customers=sum(Customers)) %>%
+  ggplot(aes(Month,Net_Customers)) + geom_col() + facet_wrap(~ Division)
+```
+  
+  
+## 4. Good Grief! Two variables, two values in one column  
+
+Frequently, we get tables that make you ask, *What were they thinking? Or in the words of John McEnroe, 'you cannot be serious!'* One such table is one where there not one, but two variables in a column, and consequently, two values in the column cells. Let's take a look at an example of such a table posted by Eric. L.  
+  
+```{r}
+#testing=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy data set 3.csv")
+testing=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20data%20set%203.csv")
+testing
+```
+  
+In this very untidy table, each of the four columns contains two discrete, separate variables (test score and time studied for each test) in one, single column. Let's separate each column into two separate columns with the ``separate()`` function.  
+
+```{r}
+testing.tidy = testing %>%
+  separate(Test1..TimeStudiedTest1,
+           into = c("Test1","TimeStudiedTest1"),
+           sep = ", ", convert=TRUE) %>%
+  separate(Test2..TimeStudiedTest2,
+           into = c("Test2","TimeStudiedTest2"),
+           sep = ",", convert=TRUE) %>%
+  separate(Test3..TimeStudiedTest3,
+           into = c("Test3","TimeStudiedTest3"),
+           sep = ", ", convert=TRUE) %>%
+  separate(Test4..TimeStudiedTest4,
+           into = c("Test4","TimeStudiedTest4"),
+           sep = ", ", convert=TRUE)
+
+testing.tidy
+```
+  
+Now that we've separated the offending four columns into eight discrete columns, the next task is to turn the four columns corresponding to test numbers to one variable column 'Test' and another variable 'TestScore' for the test score value. We'll do that with the ``pivot_longer()`` function.
+  
+```{r}
+testing.tidy = testing.tidy %>% pivot_longer(
+  c(Test1,Test2,Test3,Test4),
+  names_to="Test",
+  values_to="TestScore",
+  names_prefix = "Test",
+  names_transform = list(TestScore=as.integer))
+
+print.data.frame(testing.tidy)
+```
+  
+Then, we perform a similar ``pivot_longer()`` on the four columns with the study time for each test.   
+  
+```{r}
+testing.tidy = testing.tidy %>%
+  pivot_longer(
+    c(TimeStudiedTest1,TimeStudiedTest2,TimeStudiedTest3,TimeStudiedTest4),
+    names_to="Tst",
+    values_to="StudyMinutes",
+    names_prefix = "TimeStudiedTest")
+
+glimpse(testing.tidy)
+```
+  
+This second ``pivot_longer()`` transformation results in a tibble with quadruplicate records for each student, only one of which is correct and of interest. But which one? The correct record or row is that for which columns 'Test' and 'tst' are the same. Let's go ahead and subset only the correct rows. Thereafter, we'll drop the 'Tst' column which is no longer needed, and drop 'NA' values where a student did not take and study for a test.  
+
+```{r}
+testing.tidy = testing.tidy %>%
+  filter(Tst==Test) %>%
+  select(-Tst) %>%
+  drop_na()
+
+print.data.frame(testing.tidy)
+```
+    
+***Is there a relationship between study time and test score?***  
+
+```{r}
+C=cor(testing.tidy %>% select(StudyMinutes,TestScore))
+cat("Correlation Coefficient:",C[1,2])
+ggplot(testing.tidy,aes(StudyMinutes,TestScore)) + geom_point()
+```
+  
+***How are study times and test scores distributed by Gender?***
+  
+```{r}
+  ggplot(testing.tidy,aes(Gender,StudyMinutes)) + geom_boxplot()
+  
+  ggplot(testing.tidy,aes(Gender,TestScore)) + geom_boxplot()
+```
+  
+  
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file and source data files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
+  
+
+
+
+
+
