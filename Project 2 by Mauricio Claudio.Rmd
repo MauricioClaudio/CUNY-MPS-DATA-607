@@ -179,6 +179,93 @@ churn.tidy %>%
 ```
   
   
+## 4. Untidy data: Two variables, two values in one column 
+Frequently, we get tables that make you ask, *what were they thinking when formatting the data table? In the words of John McEnroe, 'you cannot be serious!'* One such table is one where there not one, but two variables in a column, and consequently, two values in the column cells. Let's take a look at an example of such a table posted by Eric. L.  
+  
+```{r}
+testing=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy data set 3.csv")
+
+testing
+```
+  
+In this very untidy table, each of the four columns contains two discrete, separate variables (test score and time studied for each test) in one, single column. Let's separate each column into two separate columns with the ``separate()`` function.  
+
+```{r}
+testing.tidy = testing %>%
+  separate(Test1..TimeStudiedTest1,
+           into = c("Test1","TimeStudiedTest1"),
+           sep = ", ", convert=TRUE) %>%
+  separate(Test2..TimeStudiedTest2,
+           into = c("Test2","TimeStudiedTest2"),
+           sep = ",", convert=TRUE) %>%
+  separate(Test3..TimeStudiedTest3,
+           into = c("Test3","TimeStudiedTest3"),
+           sep = ", ", convert=TRUE) %>%
+  separate(Test4..TimeStudiedTest4,
+           into = c("Test4","TimeStudiedTest4"),
+           sep = ", ", convert=TRUE)
+
+testing.tidy
+```
+  
+Now that we've separated the offending four columns into eight discrete columns, the next task is to turn the four columns corresponding to test numbers to one variable column 'Test' and another variable 'TestScore' for the test score value. We'll do that with the ``pivot_longer()`` function.
+  
+```{r}
+testing.tidy = testing.tidy %>% pivot_longer(
+  c(Test1,Test2,Test3,Test4),
+  names_to="Test",
+  values_to="TestScore",
+  names_prefix = "Test",
+  names_transform = list(TestScore=as.integer))
+
+print.data.frame(testing.tidy)
+```
+  
+Then, we perform a similar ``pivot_longer()`` on the four columns with the study time for each test.   
+  
+```{r}
+testing.tidy = testing.tidy %>%
+  pivot_longer(
+    c(TimeStudiedTest1,TimeStudiedTest2,TimeStudiedTest3,TimeStudiedTest4),
+    names_to="Tst",
+    values_to="StudyMinutes",
+    names_prefix = "TimeStudiedTest")
+
+glimpse(testing.tidy)
+```
+  
+This second ``pivot_longer()`` transformation results in a tibble with quadruplicate records for each student, only one of which is correct and of interest. But which one? The correct record or row is that for which columns 'Test' and 'tst' are the same. Let's go ahead and subset only the correct rows. Thereafter, we'll drop the 'Tst' column which is no longer needed, and drop 'NA' values where a student did not take and study for a test.  
+
+```{r}
+testing.tidy = testing.tidy %>%
+  filter(Tst==Test) %>%
+  select(-Tst) %>%
+  drop_na()
+
+print.data.frame(testing.tidy)
+```
+    
+***Is there a relationship between study time and test score?***  
+
+```{r}
+cor(testing.tidy %>% select(StudyMinutes,TestScore))
+ggplot(testing.tidy,aes(StudyMinutes,TestScore)) + geom_point()
+```
+  
+***Does it vary by Gender?***  
+```{r}
+ggplot(testing.tidy,aes(StudyMinutes,TestScore)) + geom_point() + facet_wrap(~ Gender)
+```
+  
+***How are study times and test scores distributed by Gender?***
+  
+```{r}
+  ggplot(testing.tidy,aes(Gender,StudyMinutes)) + geom_boxplot()
+  
+  ggplot(testing.tidy,aes(Gender,TestScore)) + geom_boxplot()
+```
+  
+  
 ### But don't take my word for it...
 
 - [This document](https://rpubs.com/MauricioClaudio)
