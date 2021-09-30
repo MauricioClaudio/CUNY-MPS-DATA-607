@@ -249,16 +249,25 @@ testing.tidy = testing.tidy %>%
 
 print.data.frame(testing.tidy)
 ```
-    
-***Is there a relationship between study time and test score?***  
+  
+Now that the data is tidy we can begin to probe it. Is there a relationship between study time and test score? Let's look at the scatter plot.  
 
 ```{r}
-C=cor(testing.tidy %>% select(StudyMinutes,TestScore))
-cat("Correlation Coefficient:",C[1,2])
 ggplot(testing.tidy,aes(StudyMinutes,TestScore)) + geom_point()
+
+c=cor(testing.tidy %>% select(StudyMinutes,TestScore))
+cat("Correlation coefficient of the two variables:",c[1,2])
+
+  cat("The regression equation is:\n",
+      "Y =",
+      round(coef(lm(testing.tidy$TestScore~testing.tidy$StudyMinutes))["(Intercept)"]),
+      "+ (",
+      round(coef(lm(testing.tidy$TestScore~testing.tidy$StudyMinutes))["testing.tidy$StudyMinutes"],2),
+      "* X)"
+      )
 ```
   
-***How are study times and test scores distributed by Gender?***
+Or, how are study times and test scores distributed by Gender?
   
 ```{r}
   ggplot(testing.tidy,aes(Gender,StudyMinutes)) + geom_boxplot()
