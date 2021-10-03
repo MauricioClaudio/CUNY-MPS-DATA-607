@@ -1,0 +1,325 @@
+---
+title: "DATA 607 Project 2"
+author: "CLAUDIO, Mauricio"
+date: "Due date: 2021-10-03"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: vignette
+---
+
+The term 'untidy data' refers to data that is not in tabular form and does not follow the following conventions:  
+* Columns represent one and only one variable or attribute  
+* Rows represent one and only one observation or instance  
+* Cells at the intersection of columns and rows contain only single variable/attribute values.  
+As such, untidy data cannot be immediately or easily processed and analyzed by tools such as R which pressupose a tidy, tabular data format.
+
+Let's look at a few cases of untidy data, and how to tidy it and analyze it with, among others, the **tidyr** and **dplyr** R packages. 
+
+```{r, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+```
+
+## Trouble with Tibbles  
+
+Our first dataset comes from the IEA, showing energy consumption per capita across various countries and regions for the period 1965-2020, with each year and corresponding values for each country laid out as a column. We want to transform the data set from *wide* format to *long* format with rows representing instances or observations. Let's first look at the dataset as it arrives from the IEA website download.  
+  
+```{r}
+#energy.dat=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Temp_primaryenergy_CSV.csv",skip=2)
+energy.dat=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Temp_primaryenergy_CSV.csv",skip=2)
+glimpse(energy.dat)
+```
+
+We first apply a ``pivot_longer()`` function,  rename and drop unnecessary columns, filter out instances where the country/region is blank, and convert text values to numeric for downstream processing. After these transformations we arrive at a tidy dataset ready for analysis.  
+  
+```{r}
+tidy.energy=energy.dat %>%
+  pivot_longer(
+    X1965:X2020,
+    names_to="Year",
+    values_to="GJpCap",
+    values_drop_na = TRUE,
+    names_prefix = "X",
+    ) %>%
+  rename(CountryRegion=Gigajoule.per.capita) %>%
+  filter(!CountryRegion=="") %>%
+  select (-c(X2009.19,X2020.1))
+tidy.energy$GJpCap=as.numeric(tidy.energy$GJpCap)
+tidy.energy$Year=as.integer(tidy.energy$Year)
+glimpse(tidy.energy)
+```
+We ignore the 'NAs introduced by coercion' warning because it is simply a reflection that the conversion to numeric type met blank cells which were converted to 'NA'. No biggie.  
+
+Often, when dealing with large datasets, we don't want to look at all or even most of it. Instead, we want to look at narrower snapshots or specific comparisons, and we wish to inspect the data graphically. Here, I created a function to do just that. The function takes in one to three countries/regions and a range of years as parameters. It then graphs energy consumption for the countries/regions for the specified year range.
+  
+```{r}
+comparo = function (C1,C2,C3,start,end=2020) {
+energy.graph = tidy.energy %>% 
+  filter(CountryRegion==C1|CountryRegion==C2|CountryRegion==C3) %>%
+  filter(Year>=start&Year<=end)
+
+ggplot(energy.graph,aes(Year,GJpCap,color=CountryRegion)) +
+  geom_line() + ggtitle("Energy Consumption per Capita, Historic") +
+  xlab("Year") + ylab("GigaJoules per capita")
+}
+
+comparo("Austria",
+        "Brazil",
+        "China",
+        1990,2010)
+```
+  
+We can also run our function without an end year where function defaults to the year 2020.  
+
+```{r}
+comparo("Total CIS",
+        "Total Europe",
+        "Total North America",
+        2000)
+```
+  
+  
+  
+## Customer Churn  
+
+Monitoring customer churn is an important process in business. Here we have the customer churn table that I posted myself, showing the performance of three teams in gaining and losing customers. Because it is untidy, with values in place of variable columns and empty cells in the *Division* column, it is difficult to analyze the table's contents and calculate customer churn and the performance of each division.  
+
+```{r}
+#churn=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy dataset 5.csv")
+churn=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20dataset%205.csv")
+churn
+```
+  
+Let's tidy up the table first by replacing empty cells with 'NA' values. We do this because the ``fill()`` function works only on cells with 'NA' values, not on empty cells. We then apply the ``fill()`` function to the *Division* column to fill empty cells in the default 'down' direction, and a ``pivot_longer()`` function to create a single *Month* column out of the twelve month columns. Note that we eliminate the *Description* column because it is redundant; the plus/minus sign of the values already indicates whether the value represents a gain or a loss. Finally, we transform *Customer* total values to integers so that we can manipulate them numerically downstream.  
+
+```{r}
+churn[churn==""]=NA
+churn.tidy = churn %>%
+  select(-Description) %>%
+  fill("Division") %>%
+  pivot_longer(c(Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec),
+  names_to="Month",
+  values_to = "Customers",
+  names_transform = list(Customers=as.integer)
+  )
+churn.tidy
+```
+  
+Now that our data is tidy, we can easily analyze its contents and ask the question: *which of the three divisions is most successful in terms of net (gains minus losses) customers?*  
+  
+```{r}
+churn.tidy %>% group_by(Division) %>%
+  summarize(Net_Customers=sum(Customers)) %>%
+  ggplot(aes(Division,Net_Customers)) + geom_col()
+```
+  
+Or we can ask: *How does net customer accrual vary over the year?*   
+
+```{r}
+churn.tidy %>%
+  group_by(Month) %>%
+  summarize(Net_Customers=sum(Customers)) %>%
+  ggplot(aes(Month,Net_Customers)) + geom_col()
+```
+  
+Management wants to know how each division performs individually over time. Heads may roll. Let's dive deeper and get them the requested info.    
+
+```{r}
+churn.tidy %>%
+  group_by(Month,Division) %>%
+  summarize(Net_Customers=sum(Customers)) %>%
+  ggplot(aes(Month,Net_Customers)) + geom_col() + facet_wrap(~ Division)
+```
+  
+I'd start sending out resumes if I were in division A.  
+
+  
+  
+## Two variables, two values in one column. Good Grief!    
+
+Frequently, we get tables that make you ask, *What were they thinking?* Or in the words of John McEnroe, *You cannot be serious!* One such table where there are not one, but two variables in a column header and consequently, two values in the column cells. Let's take a look at the example provided by Eric. L.  
+  
+```{r}
+#testing=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\Untidy data set 3.csv")
+testing=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/Untidy%20data%20set%203.csv")
+testing
+```
+  
+In this very untidy table, each of the four columns contains two discrete, separate variables (test score and time studied for each test) in one, single column. Let's separate each column into two separate columns with the ``separate()`` function.  
+
+```{r}
+testing.tidy = testing %>%
+  separate(Test1..TimeStudiedTest1,
+           into = c("Test1","TimeStudiedTest1"),
+           sep = ", ", convert=TRUE) %>%
+  separate(Test2..TimeStudiedTest2,
+           into = c("Test2","TimeStudiedTest2"),
+           sep = ",", convert=TRUE) %>%
+  separate(Test3..TimeStudiedTest3,
+           into = c("Test3","TimeStudiedTest3"),
+           sep = ", ", convert=TRUE) %>%
+  separate(Test4..TimeStudiedTest4,
+           into = c("Test4","TimeStudiedTest4"),
+           sep = ", ", convert=TRUE)
+
+testing.tidy
+```
+  
+Now that we've separated the offending four columns into eight discrete columns, the next task is to turn the four columns corresponding to test numbers to one variable column *Test* and another variable *TestScore* for the test score value. We'll do that with the ``pivot_longer()`` function.
+  
+```{r}
+testing.tidy = testing.tidy %>% pivot_longer(
+  c(Test1,Test2,Test3,Test4),
+  names_to="Test",
+  values_to="TestScore",
+  names_prefix = "Test",
+  names_transform = list(TestScore=as.integer))
+
+print.data.frame(testing.tidy)
+```
+  
+Then, we perform a similar ``pivot_longer()`` on the four columns with the study time for each test.   
+  
+```{r}
+testing.tidy = testing.tidy %>%
+  pivot_longer(
+    c(TimeStudiedTest1,TimeStudiedTest2,TimeStudiedTest3,TimeStudiedTest4),
+    names_to="Tst",
+    values_to="StudyMinutes",
+    names_prefix = "TimeStudiedTest")
+
+glimpse(testing.tidy)
+```
+  
+This second ``pivot_longer()`` transformation results in a tibble with quadruplicate records for each student, only one of which is correct and of interest. But which one? The correct record or row is that for which columns *Test* and *tst* are the same. Let's go ahead and filter for the correct rows. Thereafter, we'll drop the *Tst* column which is no longer needed, and drop 'NA' values where a student did not take and study for a test.  
+
+```{r}
+testing.tidy = testing.tidy %>%
+  filter(Tst==Test) %>%
+  select(-Tst) %>%
+  drop_na()
+
+print.data.frame(testing.tidy)
+```
+  
+Now that the data is tidy we can begin to probe it. Is there a relationship between study time and test score? Let's look at the scatter plot, and calculate the correlation coefficient and the regression equation for test score vs. study time.  
+
+```{r}
+ggplot(testing.tidy,aes(StudyMinutes,TestScore)) + geom_point()
+
+c=cor(testing.tidy %>% select(StudyMinutes,TestScore))
+cat("Correlation coefficient of the two variables:",c[1,2])
+
+regr = lm(testing.tidy$TestScore~testing.tidy$StudyMinutes)
+  
+  cat("The regression equation is:\n",
+      "Test score =",
+      round(coef(regr)["(Intercept)"]),
+      "+ (",
+      round(coef(regr)["testing.tidy$StudyMinutes"],2),
+      "* Study time)")
+
+  qqnorm(resid(regr))
+  qqline(resid(regr))
+```
+  
+Visually on the scatter plot and on QQ-norm plot, the bottom three values corresponding to study time of less than 10 minutes don't look quite right. They look like outliers. Let's eliminate them from the dataset and run the scatter plot, regression and QQ norm plot once again.  
+
+```{r}
+testing.tidier = testing.tidy %>%
+    filter(StudyMinutes>=10)
+
+  ggplot(testing.tidier,aes(StudyMinutes,TestScore)) + geom_point()
+  
+  regr2 = lm(testing.tidier$TestScore~testing.tidier$StudyMinutes)
+  
+  cat("The regression equation is:\n",
+      "Test score =",
+      round(coef(regr2)["(Intercept)"]),
+      "+ (",
+      round(coef(regr2)["testing.tidier$StudyMinutes"],2),
+      "* Study time)")
+  
+  qqnorm(resid(regr2))
+  qqline(resid(regr2))
+```
+  
+Now, that looks better. Behind the scenes, running the ``summary()`` function on the two regressions, I was able to verify that the standard error of the residuals decreased from 8.6 on the first regression with the three outliers to 5.5 on the second regression without the three outliers. The coefficient p-values were both extremely low, below 1e-07, signifying high significance, on both regressions.  
+  
+As a last, parting glimpse into the data, let's look at how study times and test scores are distributed by gender.  
+  
+```{r}
+  ggplot(testing.tidier,aes(Gender,StudyMinutes)) + geom_boxplot()
+  
+  ggplot(testing.tidier,aes(Gender,TestScore)) + geom_boxplot()
+```
+  
+## The Top-10 Most Joyful Candy  
+
+A poll is taken each year to determine ostensibly the most popular type of candy. For a list of about 100 different candies each respondent ranks each one with one the three categories, 'Despair', 'Meh' or 'Joy'. The resulting dataset is true mess with more than 100 columns representing the answer to each of the 100-odd types of candy. A mere ``glimpse()`` of it is frightening.  
+
+```{r}
+#candy=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 2\\candyhierarchy2017.csv")
+candy=read.csv("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/candyhierarchy2017.csv")
+
+glimpse(candy)
+```
+  
+Let's go ahead and tidy it with a ```pivot_longer()`` to bring the columns into rows and do the usual clean-up of header names and empty rows.
+
+```{r}
+candy.tidy = candy %>%
+  select(1,3,7:109) %>%
+  pivot_longer(Q6...100.Grand.Bar:Q6...York.Peppermint.Patties,
+               names_to="ITEM",
+               values_to="RESPONSE",
+               names_prefix = "Q6 | ") %>%
+  filter(!RESPONSE=="") %>%
+  rename(ID=Internal.ID,
+         GENDER=Q2..GENDER)
+candy.tidy$ITEM=str_remove_all(candy.tidy$ITEM,"Q6...")
+
+glimpse(candy.tidy)
+```
+  
+Now, that's much better, certainly more manageable than working with 100-odd columns earlier. Let's now calculate the ratio of JOY over the sum of all three types of votes for each candy type, determine the candy types with top-10 highest ratios and plot them on a horizontal bar graph.  
+
+```{r}
+candy.JOY = candy.tidy %>%
+  group_by(ITEM,RESPONSE) %>%
+  count() %>%
+  ungroup %>%
+  group_by(ITEM) %>%
+  mutate(item.tot=sum(n),ratio=n/item.tot) %>%
+  filter(RESPONSE=="JOY") %>%
+  arrange(-ratio) %>%
+  ungroup %>%
+  slice(1:10)
+
+candy.JOY
+
+  ggplot(candy.JOY,aes(x = reorder(ITEM,ratio),ratio)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("The Top-10 Most Joyful Candy") +
+  xlab("Candy") + ylab("Ratio JOY/N")
+```
+  
+## Conclusion
+The first step after data acquisition is data tidying or wrangling. The **dplyr** and **tidyr** packages are a powerful, intuitive, essential suite of data manipulation tools for the task. However, these packages are complements rather than replacements to facility with base R data manipulation operations.
+  
+  
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file and source data files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
+  
+
+
+
+
+
