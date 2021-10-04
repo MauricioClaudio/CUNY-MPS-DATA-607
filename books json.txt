@@ -1,0 +1,26 @@
+{"books" :[
+    {
+    "Title" : "The Grapes of Wrath",
+    "Author" : "John Steinbeck",
+    "Year" : 1939,
+    "Language" : "English",
+    "Country" : "United States"
+    }
+,
+    {
+    "Title" : "La Muerte de Artemio Cruz",
+    "Author" : "Carlos Fuentes",
+    "Year" : 1967,
+    "Language" : "Spanish",
+    "Country" : "Mexico"
+    }
+,
+    {
+    "Title" : "The Communist Manifesto",
+    "Author" : "Karl Marx and Friedrich Engels",
+    "Year" : 1848,
+    "Language" : "German",
+    "Country" : "United Kingdom"
+    }
+	]
+}
