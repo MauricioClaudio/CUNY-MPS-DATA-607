@@ -1,0 +1,153 @@
+---
+title: "DATA 607 - Week 7 Assignment"
+author: "CLAUDIO, Mauricio"
+date: "Due date: 2021-10-10"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+## Assignment – Working with XML and JSON in R
+
+Pick three of your favorite books on one of your favorite subjects. At least one of the books should have more than one author. For each book, include the title, authors, and two or three other attributes that you find interesting.  
+
+Take the information that you’ve selected about these three books, and separately create three files which store the book’s information in HTML (using an html table), XML, and JSON formats (e.g. “books.html”, “books.xml”, and “books.json”). To help you better understand the different file structures, I’d prefer that you create each of these files “by hand” unless you’re already very comfortable with the file formats.  
+
+Write R code, using your packages of choice, to load the information from each of the three sources into separate R data frames. Are the three data frames identical?  
+
+Your deliverable is the three source files and the R code. If you can, package your assignment solution up into an .Rmd file and publish to rpubs.com. [This will also require finding a way to make your three text files accessible from the web].  
+
+```{r, include=FALSE}
+library(rvest)
+library(dplyr)
+library(tidyr)
+library(rjson)
+library(XML)
+```
+
+### Create, load and convert HTML file
+
+```{r}
+#books.html = read_html("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Weekly Lessons\\Week 7\\Assignment\\books html.txt")
+
+##### HTML
+# <html>
+#     <head>
+#         <title>books</title>
+#     </head>
+#     <body>
+#         <table>
+#             <tr>    <th>Title</th> <th>Author</th> <th>Year</th> <th>Language</th> <th>Country</th>    </tr>
+#             <tr>    <td>The Grapes of Wrath</td> <td>John Steinbeck</td> <td>1939</td> <td>English</td> <td>United States</td>    </tr>
+#             <tr>    <td>La Muerte de Artemio Cruz</td> <td>Carlos Fuentes</td> <td>1967</td> <td>Spanish</td> <td>Mexico</td> </tr>
+#             <tr>    <td>The Communist Manifesto</td> <td>Karl Marx and Friedrich Engels</td> <td>1848</td> <td>German</td> <td>United Kingdom</td> </tr>
+#         </table>
+#     </body>
+# </html>
+#####
+
+books.html = read_html("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/books%20html.txt")
+books.html = books.html |> html_table(header=TRUE)
+books.html = as.data.frame(books.html)
+glimpse(books.html)
+
+```
+  
+  
+### Create, load and convert XML file
+
+```{r}
+#books.xml = xmlParse("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Weekly Lessons\\Week 7\\Assignment\\books xml.txt")
+#books.xml = xmlParse("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/books%20xml.txt")
+
+##### XML
+books.xml = '<?xml version="1.0" encoding="ISO-8859-1"?>
+<books>
+    <book id="1">
+        <Title>The Grapes of Wrath</Title>
+        <Author>John Steinbeck</Author>
+        <Year>1939</Year>
+        <Language>English</Language>
+        <Country>United States</Country>
+    </book>
+    <book id="2">
+        <Title>La Muerte de Artemio Cruz</Title>
+        <Author>Carlos Fuentes</Author>
+        <Year>1967</Year>
+        <Language>Spanish</Language>
+        <Country>Mexico</Country>
+    </book>
+    <book id="3">
+        <Title>The Communist Manifesto</Title>
+        <Author>Karl Marx and Friedrich Engels</Author>
+        <Year>1848</Year>
+        <Language>German</Language>
+        <Country>United Kingdom</Country>
+    </book>
+</books>'
+#####
+
+books.xml = xmlToDataFrame(books.xml)
+glimpse(books.xml)
+
+```
+Note that the XML file was read in locally because reading it remotely from Github, unlike for HTML and JSON, produced an unexplainable error. The commented-out code for reading it remotely is provided, nevertheless.  
+
+### Create, load and convert JSON file
+
+```{r}
+#books.json = fromJSON(file="C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Weekly Lessons\\Week 7\\Assignment\\books json.txt")
+
+##### JSON
+# {"books" :[
+#   {
+#     "Title" : "The Grapes of Wrath",
+#     "Author" : "John Steinbeck",
+#     "Year" : 1939,
+#     "Language" : "English",
+#     "Country" : "United States"
+#   }
+#   ,
+#   {
+#     "Title" : "La Muerte de Artemio Cruz",
+#     "Author" : "Carlos Fuentes",
+#     "Year" : 1967,
+#     "Language" : "Spanish",
+#     "Country" : "Mexico"
+#   }
+#   ,
+#   {
+#     "Title" : "The Communist Manifesto",
+#     "Author" : "Karl Marx and Friedrich Engels",
+#     "Year" : 1848,
+#     "Language" : "German",
+#     "Country" : "United Kingdom"
+#   }
+# ]
+# }
+#####
+
+books.json = fromJSON(file="https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/books%20json.txt")
+books.json = as.data.frame(books.json[[1]])
+glimpse(books.json)
+```
+
+
+### Are the three data frames identical?
+
+The HTML and XML data frames are, for practical purposes, identical save for minor differences in character types which can be easily changed via ``as.numeric()`` and ``as.integer()`` functions.  
+
+The JSON data frame, on the other hand, is different in that it ends up as one row with as many columns as there are attributes and instances in the source JSON file. The JSON data frame, however, can be easily made to match the HTML and XML data frame arrangement by the application of ``pivot_longer()`` functions. Not a problem, really.  
+
+
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file and source data files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
+  
+
+
+
+
