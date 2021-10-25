@@ -1,0 +1,244 @@
+---
+title: "DATA 607 - Week 10 Assignment"
+author: "CLAUDIO, Mauricio"
+date: "Due date: "
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+In *Text Mining with R*, Chapter 2 looks at 'Sentiment Analysis'. In this assignment, you should start by getting the primary example code from chapter 2 working in an R Markdown document.  You should provide a citation to this base code.  You’re then asked to extend the code in two ways:  
+•	Work with a different corpus of your choosing, and  
+•	Incorporate at least one additional sentiment lexicon (possibly from another R package that you’ve found through research).
+
+The base code used here is taken from:  
+'Text Mining with R' by Julia Silge and David Robinson (O’Reilly).  
+Copyright 2017 Julia Silge and David Robinson,978-1-491-98165-8.  
+
+
+
+## Sentiment analysis of selected speeches
+
+We will conduct sentiment analysis for three famous speeches from American history.  
+- Abraham Lincoln's Gettysburg address  
+- John. F. Kennedy's inaugural address  
+- Martin Luther King's *I have dream...* speech  
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(dplyr)
+library(stringr)
+library(tidytext)
+library(readtext)
+library(tidyr)
+library(ggplot2)
+library(wordcloud)
+library(reshape2)
+library(gutenbergr)
+
+load("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\afinn.rda")
+load("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\nrc.rda")
+
+ABE = readtext("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\Lincoln - Gettysburg address.txt")
+JFK = readtext("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\Kennedy - Inaugural address.txt")
+MLK = readtext("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\King - I have a dream.txt")
+
+speeches = bind_rows(ABE,JFK,MLK)
+```
+
+In the background we have already loaded and combined the three speeches into a single data frame, *speeches*. Let's take a look at it, tidy it up a bit and then tokenize first into sentences to derive the sentence number and then into words.
+
+```{r}
+glimpse(speeches)
+
+tidy_speeches = speeches |>
+  group_by(doc_id) |>
+  unnest_tokens(sentence,text,token="sentences") |>
+  mutate(sentence.num = row_number()) |>
+  ungroup() |>
+  unnest_tokens(word,sentence)
+glimpse(tidy_speeches)
+```
+
+JFK's inaugural address struck a bold and hopeful tone. Nevertheless, those were the fearful days of the Cold War. Let's look at how the sentiment of *fear* figures in his speech.  
+
+```{r, warning=FALSE,message=FALSE}
+nrc_fear <- get_sentiments("nrc") %>% 
+  filter(sentiment == "fear")
+tidy_speeches %>%
+  filter(doc_id == "Kennedy - Inaugural address.txt") %>%
+  inner_join(nrc_fear) %>%
+  count(word, sort = TRUE)
+```
+
+We now turn our attention to how sentiments vary for each of the three speeches with the 'bing' sentiment lexicon.
+
+```{r, warning=FALSE,message=FALSE}
+speech.sentiment <- tidy_speeches %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(doc_id, index = sentence.num, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+ggplot(speech.sentiment, aes(index, sentiment, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  xlab("Sentence") +
+  facet_wrap(~doc_id, ncol = 2, scales = "free_x")
+```
+  
+Notice how *'I have a dream'* ends with a barrage of positive sentiment.  
+
+## Comparing the three sentiment dictionaries
+
+Let's compare the three sentiment dictionaries: Bing, AFINN and NRC. We'll use ``I have a dream.`` for the comparison.
+
+```{r, warning=FALSE,message=FALSE}
+dream <- tidy_speeches %>% 
+  filter(doc_id == "King - I have a dream.txt")
+
+afinn <- dream %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(index = sentence.num) %>% 
+  summarise(sentiment = sum(value)) %>% 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  dream %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "BING"),
+  dream %>% 
+    inner_join(get_sentiments("nrc") %>% 
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) %>%
+    mutate(method = "NRC")) %>%
+  count(method, index = sentence.num, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+bind_rows(afinn, 
+          bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")
+
+```
+  
+The three sentiment lexicons coincide in showing that the ending third of *I have a dream* is filled with positivity. Could that account for some of its power? Could we couple this textual analysis with auditory sentiment analysis, that is, analyze the audio transcript for specific spectral signatures of the oratory? Fourier transform analysis? It would be really interesting to overlay these graphs with energy spectrum graphs derived from the audio transcripts. Possible final project topic? Orwell twitches in his grave.  
+
+
+## Most common positive and negative words {#most-positive-negative}
+
+```{r,message=FALSE,warning=FALSE}
+bing_word_counts <- tidy_speeches %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+bing_word_counts |>
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+## Wordclouds
+
+```{r, warning=FALSE,message=FALSE}
+tidy_speeches %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 25))
+
+tidy_speeches %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("brown", "blue"),
+                   max.words = 50)
+```
+
+
+## Sentiment analysis in other languages
+
+Polyglots and people who work across languages will want to know how to perform these analyses in languages other than English. For the Spanish language, I investigated Kaggle's [Sentiment Lexicon for 81 languages](https://www.kaggle.com/rtatman/sentiment-lexicons-for-81-languages) and created my own Spanish sentiment lexicon by piecing together two files, one for positive and one for negative sentiment words, available therein. I applied the resulting sentiment lexicon to *Don Quixote de la Mancha* downloaded from the Gutenberg Project with the ``gutenbergr`` package. Let's look at the most common positive sentiment words.
+
+
+```{r, message=FALSE,warning=FALSE}
+sentiment_ES=read.csv("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\sentiment_lexicon_ES.csv")
+glimpse(sentiment_ES)
+
+sentiment_ES.pos = sentiment_ES |>
+  filter(sentiment=="positive")
+
+don.quixote = gutenberg_download(2000)
+don.quixote %>%
+  unnest_tokens(word,text) |>
+  select(-gutenberg_id) |>
+  inner_join(sentiment_ES.pos) |>
+  group_by(sentiment) |>
+  count(word, sort = TRUE) %>%
+  slice(1:10) |>
+  ggplot(aes(x=reorder(word,n),n)) +
+    geom_col() + coord_flip() + xlab("Palabra") +
+  ggtitle("LAS 10 PALABRAS POSITIVAS MAS COMUNES EN Don Quixote")
+```
+
+A cursory glance of the results will tell a literate Spanish speaker that this sentiment lexicon is not very good due to the prevalence of trivial, non-significant words. The search for a good Spanish sentiment lexicon continues...  
+  
+  
+Bahasa Indonesia or simply Indonesian, the national language of Indonesia, is spoken by about a quarter billion people, making it the world's tenth most widely spoken language and one of the three languages spoken in my home. Googling led me to [InSet(Indonesia Sentiment Lexicon)](https://github.com/fajri91/InSet). Again, I put together a sentiment lexicon by piecing together lexicons for negative and positive words. The resulting lexicon is, like AFINN, score-based with a numerical range of plus/minus 5. I also found, downloaded and applied an Indonesian stopword lexicon. The graph below shows a by-sentence sentiment graph for chapters one and two of renowned Indonesian writer Pramoedia Ananta Toer's novel, *Bumi Manusia* ('The Earth of Mankind').  
+
+
+```{r, warning=FALSE,message=FALSE}
+sentiment.BI_neg = read.delim("https://raw.githubusercontent.com/fajri91/InSet/master/negative.tsv")
+sentiment.BI_pos = read.delim("https://raw.githubusercontent.com/fajri91/InSet/master/positive.tsv")
+sentiment.BI = bind_rows(sentiment.BI_neg,sentiment.BI_pos)
+
+stopwords.BI = read.delim("https://raw.githubusercontent.com/aliakbars/bilp/master/stoplist",header = FALSE)
+stopwords.BI = stopwords.BI |>
+  rename(word = V1)
+
+# PRAN = readtext("C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Modules\\Week 10\\PRAN Bumi Manusia.txt")
+PRAN = readtext("https://raw.githubusercontent.com/MauricioClaudio/CUNY-MPS-DATA-607/main/PRAN%20Bumi%20Manusia.txt")
+
+tidy_PRAN = PRAN |>
+  unnest_tokens(sentence,text,token="sentences") |>
+  mutate(sentence.num = row_number()) |>
+  ungroup() |>
+  unnest_tokens(word,sentence) |>
+  select(-doc_id) |>
+  anti_join(stopwords.BI)
+  
+PRAN.sentiment <- tidy_PRAN %>%
+  inner_join(sentiment.BI) %>%
+  group_by(index = sentence.num) %>%
+  summarise(sentiment = sum(weight))
+
+ggplot(PRAN.sentiment, aes(index, sentiment)) +
+  geom_col(show.legend = FALSE) +
+  xlab("Kalimat") + ylab("Perasaan") +
+  ggtitle("Analisa Perasaan: 'Bumi Manusia', bab 1-2")
+
+```
+
+At this point it is important to think more deeply about the direct applicability of these methods, originally developed for English, an Indo-European language, to Indonesian, a language of the Austronesian language family. Indonesian word structure is sufficiently different from that of English and Spanish in that different words are formed around a nucleus or root word. For example, the Indonesian word 'memberlakukan' ('to enact') is formed around the core word 'laku' while the 'ber-' prefix is used to turn it into a verb and the additional prefix/suffix pair 'mem-' and 'kan' turn it into a transitive verb. For the sentiment analyst, the word of primary interest is 'laku'. Fortunately there exists a nucleus or root word lexicon for Indonesian which more advanced sentiment analysis would necessarily need to use. Likewise, Indonesian is also characterized by a greater disconnect between the formal and informal language. This means that many informal constructions, phrasings and words will need to be converted into the standard lexicon. It is here, in these details, where the Data Scientist needs domain knowledge.  
+
+
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file and source data files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
+  
+
+
+
+
+
