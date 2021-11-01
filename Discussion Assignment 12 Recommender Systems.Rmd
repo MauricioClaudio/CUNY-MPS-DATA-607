@@ -1,0 +1,61 @@
+---
+title: "DATA 607: Recommender Systems"
+author: "CLAUDIO, Mauricio"
+date: "Due date: 2021-11-03"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+
+[Tokopedia](https://www.tokopedia.com/) is Indonesia's largest e-commerce platform, hosting more than 100 million active users, 11 million sellers and receiving about 150 million visits per month. As a developing economy with a growing middle-class and a population of a quarter billion people, behind only China, India and the U.S. Indonesia's e-commerce is big business. In my home, we buy routinely from Tokopedia and I myself am a Gold member.  
+  
+  
+![Tokopedia Landing Page](C:\Users\LENOVO\OneDrive\Learning\Courses In Progress\DATA 607\Modules\Week 11\2021-11-012.png)
+  
+  
+## Scenario Analysis
+
+**Who are Tokopedia's target users?**  
+
+Tokopedia's target users are buyers and sellers of consumer goods ranging from food-stuffs, spare parts, consumer electronics, sports equipment, virility enhancement medication, etc. If you want to buy or sell online, you are a target Tokopedia user.  
+
+
+**What are the goals of Tokepedia target users?**  
+
+The goals of Tokopedia buyers is to purchase from a selection of products not available in local brick-and-mortar stores at low(er) prices and with the convenience of door-stop delivery. The goals of sellers is sell to those buyers.  
+
+
+**How does the Tokopedia website allow users to reach their goals?** 
+
+Tokopedia provides a brokerage function of matching buyers with sellers. Until only recently, Tokopedia itself sold nothing and possessed no inventory of its own. It allows its users to reach its goals by providing a platform where buyer demand can meet seller supply, and by providing a third-party exchange mechanism where payments by buyers and delivery by sellers are assured by a neutral third party.  
+
+
+## The recommender system
+
+This discussing pertains to the recommendations function of the website which in a manner similar to Amazon.com makes personalized recommendations to users. To sell or buy on Tokopedia, an account is needed. Hence, Tokopedia has a rich record of buyer and seller transactions to feed its recommender system.  
+
+![*"Recommendations for you"*](C:\Users\LENOVO\OneDrive\Learning\Courses In Progress\DATA 607\Modules\Week 11\2021-11-01.png)
+
+  
+Virtually all of my purchases on Tokopedia have been consumer electronics so it is not surprising that its recommendations to me are all consumer electronics. This suggests that its recommendation algorithm is most likely item-based collaboratively filtering where recommendations are made on the basis of similarity between the items that I have purchased and other items. But more significantly, the main reason for thinking that its recommendations are based on item-based collaboratively filtering is that the scale of the site, that is, the number of users N and the number of items M makes content-based or user-based collaboratively filtering too computationally expensive, too time-consuming for real-time online transactions and/or does not yield consistent, high-quality recommendations.  
+
+![*"Based on your searches"*](C:\Users\LENOVO\OneDrive\Learning\Courses In Progress\DATA 607\Modules\Week 11\Screenshot 2021-11-01 164004.png)
+
+  
+Based on these assumptions, Tokopedia performs an offline analysis of item similarity for all items on its platform. Then, as soon as I log in, it looks at my purchase history consisting of a comparatively trivial number of items in the range of M=30, looks up the table of item similarity to match my purchases with other similar items, loads the top-10, top-20 most similar items in the background, and displays them right away, without delay, as soon as I navigate to place where displaying recommendations is appropriate. The heavy-lifting, the analysis of item similarity, is done offline before I log in so I experience instantaneous recommendations. The important thing to note here is that for the specific conditions of the site - N in the hundred of millions, M in the millions and the requirement of nearly instantaneous, real-time results) there is little option but to use this type of recommender algorithm.
+
+## Recommendations
+
+I am not sure that I have any strong recommendations for the site's recommendation capabilities. One reason is that I, myself, am a targeted shopper. When I go to Tokopedia, I know more or less what I want and what I am looking for. Recommendations are of little value to me and I have made no purchases on the basis of its recommendations.  Perhaps a recommendation is to make the recommender system less intrusive for users who don't benefit from it, that is, for users whose purchases do not correlate with the system's recommendations.
+
+Looking at the website recommendations for me, I do note that it recommends on the basis of what I have looked at, but not on the basis of what I have purchased. Perhaps a better balance between the two categories is in order. 
+  
+  
+  
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown and image files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607)
+
+
