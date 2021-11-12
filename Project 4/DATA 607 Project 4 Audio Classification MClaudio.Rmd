@@ -1,0 +1,220 @@
+---
+title: "Project 4 - Audio Classification"
+author: "CLAUDIO, Mauricio"
+date: "2021-11-14"
+output:
+  prettydoc::html_pretty:
+    theme: tactile
+    highlight: vignette
+---
+
+This project is an initial learning foray into the classification of audio files and relies heavily on the work of Cornell University bio-acoustician Dena J. Clink and on her `gibbonR` and `behaviorR` packages for the R language. Her GitHub page and R packages are found [here](https://github.com/DenaJGibbon). This project seeks first to replicate her work in classifying gibbon monkey howls and then extend this work to classify human voices.
+
+
+## Data Acquisition
+
+We start by loading nine sound files of gibbon howls into a single list. We note that the files are mono-aural or single-channel (left) and are of PCM `Redbook` CD quality, that is sampling rate of 44,100Hz and bit-depth of 16 bits. These are high-quality sound files, unlike most files in public data sets. This bodes well for our work, as we will see. The resulting list 'sound.files' contains the nine gibbon howls.  
+
+```{r message=FALSE, warning=FALSE}
+### Install required libraries ###
+#install.packages(c("coda","mvtnorm","devtools","loo"))
+library(devtools)
+#devtools::install_github("DenaJGibbon/gibbonR")
+library(gibbonR)
+library(tuneR)
+library(dplyr)
+library(behaviouR)
+library(ggfortify)
+library(ggplot2)
+library(factoextra)
+
+### Read in .wav files into a single list 'sound.files'
+working.directory = "C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 4\\Project 4 sounds"
+setwd(working.directory)
+sound.files = list()
+list.wav.file.names = list.files()
+for (x in 1:length(list.wav.file.names)) {
+  tmp.wav = readWave(list.wav.file.names[x])
+  sound.files[[x]] <- list(list.wav.file.names[x], tmp.wav)}
+str(sound.files)
+```
+
+
+## Data Processing
+
+We bypass the Time Domain and jump straight into the Frequency Domain. Let's take a look at a gibbon howl spectrogram first.
+
+```{r,message=FALSE,warning=FALSE}
+SpectrogramSingle(sound.file = "C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 4\\Project 4 sounds\\SAFBA_ (2).wav")
+```
+Here we see that the spectral energy is concentrated around 1000Hz. . Let's take a look at the same spectrograph within a narrower range of frequencies of 500-1500Hz.
+
+```{r,warning=FALSE,message=FALSE}
+SpectrogramSingle(sound.file = "C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 4\\Project 4 sounds\\SAFBA_ (2).wav",
+min.freq = 500,
+max.freq = 1500)
+```
+Now, that's better. That's likely the signal of interest, and everything else was either extraneous noise or higher order harmonics that don't add much additional information. Let's look at the spectrographs for all gibbons with a slightly more conservative, wider frequency range and in color.
+
+```{r, warning=FALSE,message=FALSE}
+par(mfrow = c(2, 2))
+SpectrogramFunction(input.dir = working.directory, min.freq = 500, max.freq = 3000, Colors = "Colors")
+```
+
+## Data Feature Extraction
+
+We will now turn our attention to extracting the distinguishing features of a gibbon howl. In this case, feature extraction involves extracting the mel-frequency cepstral coefficients which together make up the signal's mel-frequency ceptrum. It is this ceptrum which will help us identify and classify the signal. Let's go ahead and take the mel-frequency cepstral coefficients for gibbon howls.  
+
+```{r,warning=FALSE,message=FALSE}
+gibbon.ceptral = MFCCFunction(input.dir = working.directory,
+                              min.freq = 500,
+                              max.freq = 3000)
+glimpse(gibbon.ceptral)
+```
+
+We arrive at data frame consisting of nine rows, one for each sound file or individual gibbon howl, and 177 columns or features corresponding to the mel-frequency cepstral coefficients. Each howl is described by 177 features. We've gone from nine .wav files to a single, relatively small dataframe.
+
+## Data Feature Engineering & Modeling
+
+We've managed to simplify our working data, but we are still plagued by the curse of dimensionality. Our data frame consists still of 177 features, not all of which contribute equally or even significantly. What we need to do at this point is to reduce the features to a number of the most significant components. We do that by applying Principal Component Analysis (PCA) to transform the data into component axes representing the features or feature combinations of most significance. Let's go ahead and perform PCA on our data frame of gibbon howls.  
+
+```{r,warning=FALSE,message=FALSE}
+PCAgibbon.ceptral=prcomp(gibbon.ceptral[,-c(1)],scale.=TRUE,center = TRUE)
+gibbon.ceptral$Class=as.factor(gibbon.ceptral$Class)
+summary(PCAgibbon.ceptral)
+```
+
+PCA reduced the original 177 features into nine Principal Components, the first two of which, PC1 and PC2, account for 66.45% of the data variability. Let's now plot our PCA-reduced data along the first two components, PC1 and PC2.
+
+```{r, warning=FALSE,message=FALSE}
+fviz_pca_ind(PCAgibbon.ceptral,
+    label = "var",
+    habillage=gibbon.ceptral$Class,
+    addEllipses=TRUE)
+```
+
+Voila! We see clear clustering of the gibbon howls into three discrete groups, each group representing a different gibbon species.  
+  
+Another dimensionality reduction technique is Linear Discriminant Analysis. Let's go ahead and reduce the dimensionality of our data with LDA. For that, we calculate the mel-frequency-ceptral coefficients again so that we can feed the results into the `biplotGibbonR` function.  
+
+```{r,warning=FALSE,message=FALSE}
+gibbon.MFCC = calcMFCC(
+  list.wav.files = sound.files,
+  n.window = 3,
+  n.cep = 3,
+  min.freq = 500,
+  max.freq = 3000)
+glimpse(gibbon.MFCC)
+```
+
+Now that we have the cepstra, let's plot our gibbon howls along the first two Linear Discriminant axes. 
+
+```{r,warning=FALSE,message=FALSE}
+biplotGibbonR(gibbon.MFCC,
+              classification.type = "LDA",
+              class.labs = F)
+```
+  
+Voila again. We see clear clustering by species using LDA too.  
+  
+Let's train a classification model and find out its predictive power.
+
+```{r,warning=FALSE,message=FALSE}
+output.lda.full = trainLDA(
+    feature.df = gibbon.MFCC,
+    train.n = 0.7,
+    test.n = 0.3,
+    CV = FALSE)
+```
+
+Nearly 86% correct classification rate. Not bad. Not bad at all.
+
+## Classification of human voice
+
+Let's now replicate this classification with human voices. For that, I recorded my son and me speaking six short sentences. The resulting audio .wav files are identical except for the speaker. Let's first look at the spectograms.  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+working.directory = "C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 4\\Project 4 sounds II"
+setwd(working.directory)
+sound.files = list()
+list.wav.file.names = list.files()
+for (x in 1:length(list.wav.file.names)) {
+  tmp.wav = readWave(list.wav.file.names[x])
+  sound.files[[x]] <- list(list.wav.file.names[x], tmp.wav)}
+par(mfrow = c(2, 2))
+SpectrogramFunction(input.dir = working.directory, min.freq = 50, max.freq = 3000, Colors = "Colors")
+```
+  
+As with the gibbon howls, we extract the mel-frequency ceptrum coefficients, perform PCA on the ceptra and plot that along the first Principal Component axes.  
+  
+```{r,warning=FALSE,message=FALSE}
+human.ceptral = MFCCFunction(input.dir = working.directory,
+                              min.freq = 50,
+                              max.freq = 3000)
+
+PCAhuman.ceptral=prcomp(human.ceptral[,-c(1)],
+                         scale.=TRUE,center = TRUE)
+human.ceptral$Class=as.factor(human.ceptral$Class)
+
+fviz_pca_ind(PCAhuman.ceptral,
+    label = "var",
+    habillage=human.ceptral$Class,
+    addEllipses=TRUE)
+```
+
+Once again, we get two clear, distinct clusters, one corresponding to my son's utterances and another corresponding to mine.  
+  
+Now, behind the scenes I added a third speaker, my wife, into the mix, and the model did not do as well in classifying unambiguously. This suggests that human speech and the sounds emerging from a highly evolved voice box are a lot more complex than gibbon howls, and therefore, that this admittedly simple, if not simplistic model is not up to the task. Perhaps this model is only appropriate for binary classification of more complex signals, nothing more.
+
+Having failed at classifying more than two speakers, I asked myself, could the model perform better in classifying not speakers but  speech? That is, does it do any better in identifying phonemes or even words? To explore these questions, I ran the model on utterances of the numbers one, two and three by six different speakers, two speakers for each number. Each audio file was a person saying of the three numbers in English. The results were surprising.  
+
+```{r, warning=FALSE,message=FALSE}
+working.directory = "C:\\Users\\LENOVO\\OneDrive\\Learning\\Courses In Progress\\DATA 607\\Projects\\Project 4\\Project 4 sounds III"
+setwd(working.directory)
+sound.files = list()
+list.wav.file.names = list.files()
+for (x in 1:length(list.wav.file.names)) {
+  tmp.wav = readWave(list.wav.file.names[x])
+  sound.files[[x]] <- list(list.wav.file.names[x], tmp.wav)}
+
+human.ceptral = MFCCFunction(input.dir = working.directory,
+                              min.freq = 50,
+                              max.freq = 3500)
+
+PCAhuman.ceptral=prcomp(human.ceptral[,-c(1)],
+                         scale.=TRUE,center = TRUE)
+human.ceptral$Class=as.factor(human.ceptral$Class)
+
+fviz_pca_ind(PCAhuman.ceptral,
+    label = "var",
+    habillage=human.ceptral$Class,
+    addEllipses=TRUE)
+
+human.MFCC = calcMFCC(
+  list.wav.files = sound.files,
+  n.window = 3,
+  n.cep = 3,
+  min.freq = 50,
+  max.freq = 3000)
+
+output.lda.full = trainLDA(
+    feature.df = human.MFCC,
+    train.n = 0.7,
+    test.n = 0.3,
+    CV = FALSE)
+```
+
+Instances of utterances of the number one are classified in the left-most cluster, of number two in the middle cluster and of number three in the right-most cluster. The classification rate is 92% according to the LDA model.
+
+## Summary
+
+A simple model based on the extraction of mel-frequency ceptrum coeffiecients and Principal Component Analysis of sound signals is able to classify gibbon howls, but does less well descriminating among human speakers. Despite the simplicity of the model, it is suprising, however, how well it does at the task of classifying simple speech. This is an exciting area with a vast number of practical applications. Audio classification alone can serve in medical, surveillance, industrial and conservation efforts.
+
+
+
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file and data files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607/tree/main/Project%204)
+  
