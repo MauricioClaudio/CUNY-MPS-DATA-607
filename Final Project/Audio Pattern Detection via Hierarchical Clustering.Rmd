@@ -1,0 +1,385 @@
+---
+title: "Audio Pattern Detection with Hierarchical Clustering  \n  \n"
+author: "Mauricio Claudio"
+date: "2021-12-05"
+output:
+  prettydoc::html_pretty:
+    theme: leonids
+    highlight: vignette
+    
+---
+Recent breakthroughs in image classification have prompted investigation on whether similar results can be obtained with audio data using the same deep learning neural networks used for image classification. However, both at the conceptual and practical levels, image and audio classification differ in significant ways. At the conceptual level, sound data comprises dynamic events as they unfold in time whereas images are static snapshots of moments in time. Audio is time-series data that is analyzed both in the time and frequency domain where the axes are amplitude vs. time and frequency vs. time, respectively. Images, on the other hand, consist simply of amplitude levels, typically corresponding to each one of the RBG colors in a grid structure where both axes of size or length are identical. 
+
+  
+On a practical level, image classification draws from an enormous body or corpus of strongly-labelled data whereas audio data is scant and most all is weakly labelled. An exception to this is the availability of speech data in a limited number of languages and industries typically used for speech recognition. Audio suffers from scarce strongly-labelled data which suggests that it is not particularly suitable to deep learning models which require massive amounts of strongly-labelled data for training.  
+
+A related issue is the great computational expense and power draw of traditional deep learning modeling. Exorbitant costs can render many deep learning models inoperable in low power mobile or embedded applications. For reasons conceptual and practical, audio signal data science cannot simply ape and follow in the footsteps of image classification and therefore, there is a need for simpler, low power machine learning methods. This project explores one such simple method for the detection of audio signals, the use of unsupervised hierarchical clustering for audio pattern detection.  
+  
+## Introduction
+Ecuador's Yasuni National Park (YNP) is a designated UNESCO biosphere reserve located at the convergence of three unique ecological regions, the Andes mountain range, the Amazon rainforest and the Equator. YNP is arguably one of the most biodiverse places on the planet, possessing species that exist nowhere else even on the American continent.  
+  
+<center>
+![](images\YNP1.jpg)
+![](images\YNP.jpg)
+![](images\YNP2.jpg)
+![](images\YNP4.jpg)
+![](images\YNP3.jpg)
+</center>
+  
+  
+Three frog species that make their home in YNP are *Boana alfaroi* (Alfaro’s Tree Frog), *Engystomops petersi* (Peters’ Dwarf Frog) and *Pristimantis conspicillatus* (Chirping Robber Frog). For field biologists and ecologists, work often revolves around the concrete, initial question: *What species or set of species are present within the transect under investigation?*  The application of machine learning to the analysis of audio data can help field scientists answer this question. More broadly, audio pattern recognition can be applied to different fields such as medicine, manufacturing, surveillance, voice recognition, etc.
+
+<center>
+**Alfaro's Tree Frog**  
+![](images\Boana alfaroi.jpg)
+  
+**Peters' Dwarf Frog**  
+![](images\Engystomops petersi.jpg)
+  
+**Chirping Robber Frog**  
+![](images\Pristimantis conspicillatus.jpg)
+</center>
+
+  
+A proof-of-concept, this project demonstrates that it is conceptually possible to answer this above question using simple machine learning models requiring no great computational expense or the deployment of complex, power-hungry deep learning models. It does this by applying a simple hierarchical clustering algorithm to audio recordings taken at YNP in order to detect and discriminate the chirps of frog species from a environmental recording.
+
+
+## Data Collection
+The audio data of frog calls used for this project is available at [Mendeley Data](Labeled frog-call dataset of Yasuní National Park for training Machine Learning algorithms - Mendeley Data). A typical audio file is two to five minutes in duration and is weakly-labelled by frog species. The files are not segmented or annotated to give the user a precise location of the actual frog calls. Instead the files consist of long periods of silence or near silence with a constant ambient backdrop of forest sounds punctuated by sporadic frog calls at intermittent points. A sample of a typical audio file is provided below:
+
+**Sample Audio Recording from Yasuni National Park**  
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\Boana alfaroi\Boana alfaroi (3).WAV" type="audio/wav">
+</audio>  
+  
+  
+
+## Data Exploration and Preparation
+The frog call files in .WAV format were first visualized in Audacity, a popular, open-source sound analysis application. The chirps of the three frog species were isolated and extracted to be used as reference samples. Three reference chirps named 'REFERENCE - *species*' were extracted for each of the three frog species. The chirps and the time-amplitude and time-frequency graphs of the three frog chirps are provided below:
+
+![](images\frogicon3.jpg)
+**Alfaro's Tree Frog**
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\Boana alfaroi\REFERENCE Boana alfaroi (2).wav" type="audio/wav">
+</audio>  
+![](images\Timedomain Boana alfarensi.jpg)
+![](images\Spectrogram Boana alfarensi.jpg)
+  We note that the chirp of Alfaro's Tree Frog consists of four distinct components lasting about one fifth of a second with a power concentration between 1,500 and 3,000 KHz.  
+  
+![](images\frogicon3.jpg)
+**Peters' Dwarf Frog**
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\Engystomops petersi\REFERENCE Engystomops petersi (1).wav" type="audio/wav">
+</audio>  
+![](images\Timedomain Engystomops petersi.jpg)
+![](images\SPC Engystomops petersi.jpg)
+Peter's Dwarf Frog shows a much different chirp, lasting only about a tenth of a second. Its time-amplitud graph is rather uneventful but its spectrogram shows a rather complex signal consisting of four discrete tapering bands between 700 Hz and 4,000 KHz.  
+  
+
+![](images\frogicon3.jpg)
+**Chirping Robber Frog**
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\Pristimantis conspicillatus\REFERENCE Pristimantis conspicillatus (3).wav" type="audio/wav">
+</audio>  
+![](images\Timedomain Pristimantis conspicillatus.jpg)
+![](images\Spectrogram Pristimantis conspicillatus.jpg)
+Finally, for the Chirping Robber Frog we see a short, symmetrical chirp on the order of a tenth of a second. Its spectrogram reveals that it comprises several parallel frequency bands.  
+  
+
+## Model Building
+The aim of this project is to detect the chirps of different frog species in the the field audio recordings through the application of hierarchical clustering. To do so, the field recordings are split into discrete segments, the reference clips for the three frog species are added to the pool of split segments and then an agglomerative hierarchical clustering model is run on the combined pool of segments. The expectation is that the reference clips will attract similar segments and in doing so, become a separate, discrete cluster. The technique is analagous to the seeding of rain clouds where chemicals add as nucleation sites where water can condense out of vapor. Here we can think of *seeding* the data with reference clips that will act as nucleation sites of sorts.  
+  
+The expectation is that, for three reference species clips, segments will be arranged into three clusters. The first cluster corresponds to the segments for which no match was made with any of the three reference frog species clips. The second cluster corresponds to the segments for which a match was made with one of the reference frog species clips. The third cluster corresponds to the reference segments of the two other frog species for which no matches were found. In this way, we can answer the question, *Of these three frog species, which one is present in the forest?*
+
+The first step is to ensure that our instrument, the clustering model, is able to distinguish among the three frog species. To do so, we mix the reference clips, three for each species, and run the clustering algorithm on them. Let's load the nine reference clips and extract their Mel-frequency Ceptral Coefficients, the single feature that this simple model will use for clustering.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+##### Load audio files #####
+library(tuneR)
+working.directory = "C:\\Users\\LENOVO\\Desktop\\sounds\\Frogs\\3frogs"
+setwd(working.directory)
+audiofiles = list()
+list.wav.file.names = list.files()
+for (x in 1:length(list.wav.file.names)) {
+  tmp.wav = readWave(list.wav.file.names[x])
+  audiofiles[[x]] <- list(list.wav.file.names[x], tmp.wav)}
+
+##### Plot spectrograms ##### Uncomment to plot
+# library(behaviouR)
+# par(mfrow = c(3, 3))
+# SpectrogramFunction(input.dir = working.directory, min.freq = 700, max.freq = 4000, Colors = "Colors")
+
+##### Extract Mel-frequency Ceptral Coefficients #####
+library(gibbonR)
+MFCC = calcMFCC(
+  list.wav.files = audiofiles,
+  win.hop.time = 0.25, #!! 0.25
+  n.window = 12, #!!!3/12
+  n.cep = 9, #!!!4/9
+  min.freq = 700, #!!!1000
+  max.freq = 4000) #!!!3000
+```
+
+The next step is to test whether we have three clusters as expected, one for each group of chirp reference files. We can visualize the clustering in two dimensions...
+
+```{r message=FALSE, warning=FALSE}
+##### Tidy up & standardize the data #####
+df = MFCC[,-1]
+rownames(df) = MFCC[,1]
+df = scale(df)
+
+##### Apply AGNES ########################
+library(factoextra)
+res.dist <- dist(df, method = "manhattan")
+res.hc <- hclust(d = res.dist, method = "ward.D2")
+
+##### Plot clustering #####################
+grp <- cutree(res.hc, k=3)
+fviz_cluster(list(data = df, cluster = grp),
+             ellipse.type = "convex",
+             repel = TRUE,
+             show.clust.cent = FALSE,
+             ggtheme = theme_void(),
+             labelsize = 10,
+             ellipse.level = 0.95)
+```
+  
+...or in three dimensions.  
+  
+```{r include=FALSE, setup, warning=FALSE}
+options(rgl.useNULL = TRUE) # Suppress the separate window.
+library(rgl)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, test-rgl, webgl=TRUE}
+PCA.MFCC = prcomp(MFCC[,-1],
+                        center=TRUE,
+                        scale.= TRUE)
+grp = cutree(res.hc, k=3)
+grp = as.data.frame(grp)
+MFCC = cbind(MFCC,grp)
+graphPCA = data.frame(PC1=PCA.MFCC$x[,1],
+                      PC2=PCA.MFCC$x[,2],
+                      PC3=PCA.MFCC$x[,3],
+                      Class=MFCC$grp)
+with(graphPCA,plot3d(PC1,PC2,PC3,
+                     #xlab="Component 1",
+                     type="s",
+                     radius=1.3,
+                     col=Class+1))
+rglwidget()
+```
+
+The next step is to split the target file, the ambient audio files in which we wish to detect frog chirps. We'll use a file labelled for Alfaro's Tree Frog. The entire 2:03 second file can be heard here:  
+
+![](images\frogicon3.jpg)
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\Boana alfaroi\Boana alfaroi (1).WAV" type="audio/wav">
+</audio> 
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+##### Code to split .WAV files into file segments #####
+# split_wavs("C:\\Users\\LENOVO\\Desktop\\sounds\\Frogs\\3frogs",
+#   sgmt.dur = 3, ### segment duration in seconds
+#   parallel = 4) ### Multicore processing for longer jobs!
+```
+
+After splitting the reference files (with the `split_wav()` function in the *seewave* package), we end up with a segment pool of 41 target segments and 9 reference segments:  
+![](images\Folder of files for AGNES.jpg)
+
+We now load the 50 files, extract the Mel-frequency ceptral coefficients and calculate the clustering tendency of the dataset. Before applying a clustering algorithm we need to check whether the data contains natural clusters or whether the data is randomly distributed. Because clustering algorithms cluster regardless of whether there are inherent clusters in the data, we need to check that the clusters do not contain randomly distributed data and the the resulting clusters are real and not algorithmic fictions. We don't want to infer clusters where none exist in reality.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+### Load audio files#########################
+library(tuneR)
+setwd("C:\\Users\\LENOVO\\Desktop\\sounds\\Frogs\\split")
+audiofiles = list()
+list.wav.file.names = list.files()
+for (x in 1:length(list.wav.file.names)) {
+  tmp.wav = readWave(list.wav.file.names[x])
+  audiofiles[[x]] <- list(list.wav.file.names[x], tmp.wav)}
+
+
+##################################
+library(gibbonR)
+MFCC = calcMFCC(
+  list.wav.files = audiofiles,
+  win.hop.time = 0.25, #!! 0.25
+  n.window = 3, #!!!3
+  n.cep = 4, #!!!4
+  min.freq = 1000, #!!!1000
+  max.freq = 3000) #!!!3000
+
+
+######### Data prep #################
+df = MFCC[,-1]
+rownames(df) = MFCC[,1]
+df = scale(df)
+```
+
+```{r message=FALSE, warning=FALSE}
+###### Assessing Clustering Tendency ############
+library(clustertend)
+set.seed(111)
+hop=hopkins(df, n = nrow(df)-1)
+cat("Hopkins clustering statistic:",
+    round(1-hop$H,3),"\n")
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fviz_dist(dist(df), show_labels = FALSE ) +
+  labs(title = "Clustering Tendency")
+```
+
+Here we note two things. First, the Hopkins statistic is much higher than minimum threshold of 0.50, signifying that the data does indeed contains natural clusters rather than randomly distributed data. The graph reinforces that finding by showing distinct columns and boxes rather than a random, amorphous mosaic.
+  
+In the background, we've loaded and extracted the MEL ceptral coefficients of our 50 (41 target and 9 reference) sound files as we did earlier for the reference files. Let's now apply an agglomerative hierarchical clustering (AGNES) algorithm to the 50 sound data files and plot the results in a dendogram. We'll dial in three clusters or k = 3. This is because we expect one cluster to correspond to segments for which there was no match with the reference chirps, one cluster for the segments that matched the reference for Alfaro's Tree Frog and a third cluster for the references for the two other frog species.  
+
+```{r message=FALSE, warning=FALSE}
+res.dist <- dist(df, method = "manhattan")
+res.hc <- hclust(d = res.dist, method = "ward.D2")
+fviz_dend(res.hc,
+          cex = 0.4,
+          palette = "aaas",
+          k=3,
+          lwd=1,
+          type = "rectangle",
+          rect = TRUE,
+          repel = TRUE,
+          horiz = TRUE,
+          main="AGNES Frog Chirp Detection",
+          ylab="Similarity")
+```
+  
+Inspecting the dendogram we note that the first split is between the reference clips for the other two species, resulting in the blue cluster. This is exactly what we expected, that is, we did not expect to hear the chirps of Peters' Dwarf Frog or Chirping Robber Frog in a clip labelled for Alfaro's Tree Frog. The second split results in the red and green clusters which contain nothing but Alfaro's Tree Frog. Finally the third split is within Alfaro's Tree Frog with a third, blue cluster of the segements for which a match was found with the reference clips. If everything went as expected, if AGNES found clustering, those 'TARGET' files clustered with the 'REFERENCE'files better be frog chirps. We'll check them later.
+[Spoiler: they are all frog chirps!]   
+  
+We can also visualize our clusters with a circular dendogram:  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fviz_dend(res.hc,
+          cex = 0.4,
+          palette = "aaas",
+          k=3,
+          lwd=1,
+          type = "circular",
+          rect = TRUE,
+          repel = FALSE,
+          horiz = TRUE,
+          main="AGNES Frog Chirp Detection: circular",
+          ylab="Similarity")
+```
+  
+...or a phylogenic dendogram:
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fviz_dend(res.hc,
+          cex = 0.5,
+          palette = "aaas",
+          k=3,
+          lwd=1,
+          type = "phylogenic",
+          phylo_layout = "layout.gem",
+          rect = TRUE,
+          repel = TRUE,
+          main="AGNES Frog Chirp Detection: phylogenic",
+          ylab="Similarity")
+```
+  
+Alternatively we can plot the results with a dendogram/heatmap where each row is a sound segment and each column is a ceptral coefficient.  
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(pheatmap)
+pheatmap(df,
+         cutree_rows = 3,
+         clustering_distance_cols = "manhattan",
+         clustering_method = "ward.D2",
+         scale="none",
+         fontsize = 8) #!!!
+```
+  
+...or in two dimensions:  
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE, test-rgl2, webgl=TRUE}
+grp <- cutree(res.hc, k=3)
+fviz_cluster(list(data = df, cluster = grp),
+             palette = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07"),
+             ellipse.type = "convex", # convex
+             repel = TRUE, # Avoid label overplotting (slow)
+             show.clust.cent = TRUE, ggtheme = theme_void(),
+             labelsize = 9,
+             ellipse.level = 0.95)
+```
+  
+...or in three dimensions:    
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE,}
+PCA.MFCC = prcomp(MFCC[,-1],
+                  center = TRUE,
+                  scale. = TRUE)
+grp = cutree(res.hc, k=3)
+grp = as.data.frame(grp)
+MFCC = cbind(MFCC,grp)
+
+graphPCA = data.frame(PC1=PCA.MFCC$x[,1],
+                      PC2=PCA.MFCC$x[,2],
+                      PC3=PCA.MFCC$x[,3],
+                      Class=MFCC$grp)
+with(graphPCA,plot3d(PC1,PC2,PC3,
+                     #xlab="Component 1",
+                     type="s",
+                     radius=0.3,
+                     col=Class+1))
+rglwidget()
+```
+  
+  
+In all the graphs, we saw that the model clustered in the way that we expected. It clustered similar sounds together. So far so good. But did the model, did the algorithm find frog chirps within the target file? Looking at the blue cluster on our dendogram we find the files below, reference files 3, 10 and 29, clustered as matches with the reference clip. Are they, in fact, frog chirps? Or are they just background noise or simply other sounds present in the target file? You can judge yourself by listening to the clips of a few of the matched segments below:  
+  
+![](images\frogicon3.jpg)
+**Boana alfaroi-3**
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\split\TARGET Boana alfaroi (3).WAV" type="audio/wav">
+</audio> 
+
+![](images\frogicon3.jpg)
+**Boana alfaroi-10**
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\split\TARGET Boana alfaroi (10).WAV" type="audio/wav">
+</audio>
+
+![](images\frogicon3.jpg)
+**Boana alfaroi-29**
+<audio controls>
+  <source src="C:\Users\LENOVO\Desktop\sounds\Frogs\split\TARGET Boana alfaroi (29).WAV" type="audio/wav">
+</audio>  
+
+Behind the scenes I checked all target files clustered in blue with the reference clips and they all contain frog chirps. Not bad, not at all for a very simple model.  
+  
+  
+How reliable or significant are the clusters produced by the algorithm? Let's take the cophenetic coefficient which tells us exactly that. A value closer to one is better with values above 0.75 considered good.  
+  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+############## Cluster validation ###############
+res.coph <- cophenetic(res.hc)
+cat("Cophonetic coefficient:", round(cor(res.dist, res.coph),3))
+```
+  
+  
+## Summary & Conclusion  
+
+This simple model was succesful in discrinating among several audio signals and detect a sound patter, the chirp of a single frog species. It is quite surprising, really, that something so simple can work so well. Nevertheless, this model is quite simplistic and not robust under many conditions. It is certainly not ready for prime time or for deployment.
+
+Conceptually, the model can be improved by using a more comprehensive and sophisticated set of features intead of the single feature used here. A more sophisticated model will utilize a broader set of features drawing from both the frequency and time domain.  
+  
+In practical terms, the model can be improved by i.) splitting the reference target files into smaller and overlapping windows, ii.) applying noise reduction and brackground sound filtering to the target files, iii.) conducting the distance calculations and clustering all in memory instead of having to load segement files from disk, and iv.) varying feature parameters automatically to extract as much information from the audio files as possible. A more advanced model would dispense with the clustering algorithm altogether and simply discriminate among sound segments using a sophisticated distance calculation on the basis of a more comprehensive, complex set of features.  
+  
+____________________________
+
+Computationally expensive machine learning models have their place and time, but low power, memory-limited mobile and embedded applications on the edge call for simpler solutions. In line with that ethos, this model shows that conceptually one need not call the cavalry to perfom simple audio classification tasks.  
+  
+  
+### But don't take my word for it...
+
+- [This document](https://rpubs.com/MauricioClaudio)
+
+- [Its R Markdown file and audio data files](https://github.com/MauricioClaudio/CUNY-MPS-DATA-607/tree/main/Final%20Project)
+  
